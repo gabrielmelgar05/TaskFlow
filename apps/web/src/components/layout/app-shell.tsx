@@ -4,6 +4,8 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Icon } from "@/components/ui/icon";
 import { ConnectionNotice } from "./connection-notice";
+import { ProfileMenu } from "./profile-menu";
+import { Brand } from "@/components/ui/brand";
 
 const navigation = [
   { href: "/", label: "Visão geral", icon: "overview" },
@@ -21,15 +23,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         Pular para o conteúdo
       </a>
       <aside className="sidebar">
-        <Link href="/" className="brand" aria-label="TaskFlow — início">
-          <span className="brand-mark" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-            <span />
-          </span>
-          TaskFlow<span className="brand-dot">.</span>
-        </Link>
+        <Brand />
         <div className="sidebar-workspace">
           <span className="workspace-monogram">tf</span>
           <div>
@@ -98,10 +92,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Icon name="chevron" width="12" height="12" />
             <span className="text-ink">{currentPage}</span>
           </div>
-          <span className="inline-flex items-center gap-2 rounded-full border border-line px-3 py-1.5 text-[11px] font-medium">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#9a6c8d]" />
-            Versão inicial
-          </span>
+          <ProfileMenu />
         </header>
         <main id="conteudo" tabIndex={-1} className="page-content">
           <ConnectionNotice />
