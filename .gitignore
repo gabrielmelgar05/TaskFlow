@@ -1,0 +1,23 @@
+# Dependências
+**/node_modules/
+
+# Build
+**/.next/
+**/dist/
+**/out/
+**/coverage/
+**/*.tsbuildinfo
+
+# Prisma Client gerado
+**/src/generated/prisma/
+
+# Variáveis privadas
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.local.example
+
+# Arquivos temporários
+*.log
+*.swp
+.DS_Store
