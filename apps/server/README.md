@@ -1,132 +1,99 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# TaskFlow — API (Etapa 02)
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+API NestJS 12 em TypeScript/ESM, com Prisma 7, PrismaPg e PostgreSQL. Nesta etapa existe somente `GET /api/health`. O schema e as migrações anteriores foram preservados.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Executar localmente
 
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+Na raiz do repositório:
 
 ```bash
-$ npm install
+docker compose up -d db
+npm --prefix apps/server run start:dev
 ```
 
-## Compile and run the project
+O arquivo `apps/server/.env` já existente é carregado pelo `ConfigModule`. Em um checkout novo, copie `.env.example` para `.env` **somente se o arquivo ainda não existir** e substitua os valores de exemplo pelos do seu PostgreSQL local. Não versione esse arquivo.
+
+| Variável | Responsabilidade |
+| --- | --- |
+| `DATABASE_URL` | Conexão privada com PostgreSQL. O Docker existente publica a porta `5433`. |
+| `PORT` | Porta HTTP da API; padrão `3001`. |
+| `CORS_ORIGIN` | Origem exata do frontend; padrão `http://localhost:3000`. Aceita outras origens explícitas, separadas por vírgulas. |
+
+Origens não incluem caminho nem barra final. `http://127.0.0.1:3000` é uma origem diferente de `http://localhost:3000`. Adicione-a explicitamente se for utilizá-la.
+
+Depois do build, `npm --prefix apps/server run start:prod` executa o JavaScript compilado. Para regenerar o client em um novo checkout, use, em `apps/server`, `npm exec -- prisma generate --config prisma7.config.ts`. Isso gera código; não altera tabelas nem migrações. Nenhuma dependência nova é necessária nesta etapa.
+
+## Organização dos arquivos
+
+| Arquivo | Responsabilidade |
+| --- | --- |
+| `src/main.ts` | Inicializa o Nest, aplica a configuração HTTP, lê a porta validada e habilita encerramento gracioso. |
+| `src/app.module.ts` | Reúne os módulos de configuração, Prisma e saúde. |
+| `src/config/environment.ts` | Valida as variáveis antes de iniciar; erros nunca incluem a URL privada. |
+| `src/configure-app.ts` | Define o prefixo `/api` e as origens permitidas por CORS. Também é usado nos testes HTTP. |
+| `src/prisma/prisma.module.ts` | Registra e exporta o mesmo `PrismaService` para os módulos consumidores. |
+| `src/prisma/prisma.service.ts` | Única instância do Prisma Client gerenciada pelo Nest, com adapter `PrismaPg`, pool de até 10 conexões e limites de 3 segundos para conexão e consulta. Fecha as conexões no encerramento. |
+| `src/health/health.module.ts` | Conecta o módulo Prisma ao controller e service de saúde. |
+| `src/health/health.controller.ts` | Expõe `GET /api/health`, com `Cache-Control: no-store`. |
+| `src/health/health.service.ts` | Executa `SELECT 1` no PostgreSQL e converte falhas em HTTP 503 com mensagem segura. |
+| `src/config/environment.spec.ts` | Testa valores padrão, conversão, validação e proteção das mensagens. |
+| `test/health.e2e-spec.ts` | Testa respostas HTTP, falhas, CORS, prefixo e, opcionalmente, a conexão real. |
+| `.env.example` | Documenta a configuração sem credenciais reais. |
+
+O Prisma abre a conexão na primeira consulta. Não usamos uma conexão obrigatória no início da aplicação: isso permite que o endpoint responda **503**, inclusive quando o banco já estiver fora do ar durante a inicialização. Nenhum client é criado por requisição, e as conexões não são fechadas depois de cada consulta.
+
+## Fluxo da consulta
+
+```text
+React no navegador
+  → GET http://localhost:3001/api/health
+  → HealthController
+  → HealthService
+  → PrismaService (Prisma Client + PrismaPg)
+  → PostgreSQL: SELECT 1
+  → JSON + HTTP 200 ou 503
+  → React atualiza o aviso de conexão
+```
+
+Banco acessível — HTTP **200**:
+
+```json
+{ "status": "ok", "database": "up" }
+```
+
+Falha de conexão ou consulta — HTTP **503**:
+
+```json
+{
+  "status": "error",
+  "database": "down",
+  "message": "O serviço está temporariamente indisponível. Tente novamente em instantes."
+}
+```
+
+O endpoint verifica conectividade por uma consulta real. Ele não consulta projetos, não comprova migrações e não altera dados. Detalhes da exceção, host, usuário e senha não entram na resposta.
+
+## Verificações
+
+Na raiz:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm --prefix apps/server run build
+npm --prefix apps/server run lint
+npm --prefix apps/server test
+npm --prefix apps/server run test:e2e
+RUN_DATABASE_TESTS=true npm --prefix apps/server run test:e2e
+curl -i http://localhost:3001/api/health
 ```
 
-## Run tests
+O último comando de testes habilita a consulta ao PostgreSQL real definido em `.env`. Sem `RUN_DATABASE_TESTS=true`, esse teste fica explicitamente ignorado; os cinco testes HTTP com banco substituído continuam executando. Os testes HTTP abrem portas locais temporárias.
 
-```bash
-# unit tests
-$ npm run test
+Validação executada nesta entrega: build e lint passaram, **16 testes de configuração passaram** e **6 testes HTTP passaram com a integração real habilitada**. A API em execução respondeu 200 com o PostgreSQL local. Outra instância temporária, apontando para uma porta inacessível, respondeu 503 sem expor a conexão; o banco existente não foi interrompido.
 
-# e2e tests
-$ npm run test:e2e
+O PostgreSQL acessado pela porta `5433` identificou-se como **17.11, Alpine**. O socket do Docker negou acesso a `docker compose ps` neste ambiente; por isso, o estado do contêiner não foi inspecionado pelo CLI. A conexão e a consulta reais foram verificadas diretamente pela porta configurada no Compose.
 
-# test coverage
-$ npm run test:cov
-```
+## Limite da etapa
 
-## Deployment
+Não foram implementados autenticação, autorização, CRUD, tarefas, quadros persistidos ou Kanban. O banco existente e os dados não foram modificados. CORS controla o acesso pelo navegador e não substitui autenticação de uma futura API.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Observability
-
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
-
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
-
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-To add it to this project, run this and approve the code it prints at [observe.nestjs.com/link](https://observe.nestjs.com/link) - signing up for free if you have no account:
-
-```bash
-$ npx @nestjs/observe link
-```
-
-It installs `@nestjs/observe`, wires it into `AppModule` and `main.ts`, and writes the app key and secret into `.env`, which every `nest start` script (`start`, `start:dev`, `start:debug`) then loads. In production, set `OBSERVE_APP_KEY` and `OBSERVE_APP_SECRET` in the environment instead.
-
-Or do it by hand:
-
-```bash
-$ npm install @nestjs/observe
-```
-
-Then follow the [setup guide](https://docs.nestjs.com/observability/sdk) - it takes a single import and an app key.
-
-The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Referências consultadas: [integração NestJS/Prisma](https://docs.nestjs.com/recipes/prisma), [configuração do NestJS](https://docs.nestjs.com/techniques/configuration) e [conexões no Prisma 7](https://www.prisma.io/docs/orm/v7/prisma-client/setup-and-configuration/databases-connections/connection-management).

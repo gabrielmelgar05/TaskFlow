@@ -1,69 +1,143 @@
-import Image from "next/image";
+import Link from "next/link";
+import { ButtonLink } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Icon, type IconName } from "@/components/ui/icon";
+import { SectionCard } from "@/components/ui/section-card";
+import { FlowIllustration } from "@/components/overview/flow-illustration";
 
-export default function Home() {
+const steps: {
+  number: string;
+  title: string;
+  text: string;
+  icon: IconName;
+  color: string;
+}[] = [
+  {
+    number: "01",
+    title: "Um lugar para cada ideia",
+    text: "Reúna seus projetos em quadros e veja tudo com mais clareza.",
+    icon: "boards",
+    color: "bg-pink",
+  },
+  {
+    number: "02",
+    title: "Cada passo conta",
+    text: "Em breve, transforme grandes planos em pequenas tarefas.",
+    icon: "layers",
+    color: "bg-blue",
+  },
+  {
+    number: "03",
+    title: "Encontre seu ritmo",
+    text: "Em breve, acompanhe o progresso e celebre o caminho.",
+    icon: "target",
+    color: "bg-yellow",
+  },
+];
+export default function OverviewPage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <>
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">SEU ESPAÇO DE TRABALHO</p>
+          <h1>
+            Visão geral<span className="text-[#9a6c8d]">.</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p>Mais clareza para suas ideias. Mais espaço para o que importa.</p>
+        </div>
+        <span className="page-heading-note">
+          <Icon name="sparkles" width="16" height="16" /> O começo de algo bom
+        </span>
+      </div>
+      <section className="welcome-card">
+        <div className="relative z-10">
+          <span className="welcome-label">
+            <span className="h-1.5 w-1.5 rounded-full bg-ink" /> UM NOVO COMEÇO
+          </span>
+          <h2>
+            Organize o que importa.
+            <br />
+            No seu ritmo.
+          </h2>
+          <p>
+            Das primeiras ideias aos próximos passos.
+            <br className="hidden sm:block" /> Seu trabalho vai encontrar um bom
+            lugar aqui.
           </p>
+          <ButtonLink href="/quadros/" className="mt-5">
+            Explorar meus quadros
+            <Icon name="arrow" width="17" height="17" />
+          </ButtonLink>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        <FlowIllustration />
+      </section>
+      <div className="mb-4 mt-8 flex flex-wrap items-end justify-between gap-2">
+        <h2 className="text-base font-semibold tracking-tight">
+          Grandes planos, pequenos passos
+        </h2>
+        <span className="text-xs text-muted">
+          Um jeito mais leve de se organizar
+        </span>
+      </div>
+      <div className="grid gap-3 lg:grid-cols-3">
+        {steps.map((step) => (
+          <article
+            key={step.number}
+            className={`${step.color} rounded-2xl px-5 py-5`}
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            <div className="mb-5 flex items-center justify-between">
+              <Icon name={step.icon} width="23" height="23" />
+              <span className="font-mono text-xs opacity-60">
+                {step.number}
+              </span>
+            </div>
+            <h3 className="text-[15px] font-semibold tracking-tight">
+              {step.title}
+            </h3>
+            <p className="mt-2 max-w-72 text-[13px] leading-relaxed text-ink/75">
+              {step.text}
+            </p>
+          </article>
+        ))}
+      </div>
+      <div className="mt-7 grid gap-5 xl:grid-cols-[1.8fr_1fr]">
+        <SectionCard
+          title="Seus quadros"
+          action={
+            <Link
+              href="/quadros/"
+              className="inline-flex min-h-8 items-center gap-2 text-xs font-medium text-muted transition-colors hover:text-ink"
+            >
+              Ver quadros
+              <Icon name="arrow" width="15" height="15" />
+            </Link>
+          }
+        >
+          <EmptyState
+            title="Tudo começa com uma ideia"
+            description="Este é o espaço dos seus futuros projetos. A criação de quadros estará disponível em breve."
+          />
+        </SectionCard>
+        <aside className="idea-card">
+          <span className="eyebrow">UM LEMBRETE GENTIL</span>
+          <div className="idea-flower" aria-hidden="true">
+            ✳
+          </div>
+          <h2>
+            Você não precisa
+            <br />
+            fazer tudo de uma vez.
+          </h2>
+          <p>
+            Um projeto, uma ideia, um passo.
+            <br />O importante é ter por onde começar.
+          </p>
+          <div className="mt-auto flex items-center gap-2 pt-6 text-[11px] text-muted">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#9a6c8d]" /> Dê espaço
+            ao seu processo.
+          </div>
+        </aside>
+      </div>
+    </>
   );
 }
