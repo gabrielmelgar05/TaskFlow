@@ -1,6 +1,6 @@
-# TaskFlow — Web (Etapa 03)
+# TaskFlow — Web (Etapa 04)
 
-Next.js com **exportação estática**, React, TypeScript e Tailwind CSS. A identidade da Etapa 02 foi preservada. A Etapa 03 acrescenta telas de acesso, sessão persistente, proteção das páginas e um proxy isolado em Cloudflare Pages Functions; não acrescenta SSR, Server Actions, autenticação social ou gerenciamento de projetos.
+Next.js com **exportação estática**, React, TypeScript e Tailwind CSS. A Etapa 04 implementa workspaces, quadros e visualização Kanban com PostgreSQL real, mantendo a identidade visual, a sessão existente e o proxy Cloudflare. Não inclui SSR, CRUD de tarefas ou drag-and-drop. A seção **Etapa 04** abaixo registra os novos arquivos, o fluxo e os testes atuais; resultados anteriores estão identificados como históricos.
 
 ## Executar localmente
 
@@ -31,7 +31,8 @@ Veja [o README do backend](../server/README.md) para migração, banco, variáve
 | `/login/` | E-mail, senha, mostrar/ocultar senha, feedback de erro e link para cadastro. |
 | `/cadastro/` | Nome, e-mail, senha, confirmação e validação abaixo dos campos. Cadastro autentica e encaminha à Visão geral. |
 | `/` | Visão geral, agora exigindo sessão. Conteúdo da Etapa 02 preservado. |
-| `/quadros/` | Estado vazio, agora exigindo sessão. Continua sem CRUD ou Kanban. |
+| `/quadros/` | Seleção e CRUD de workspaces e quadros, conforme permissões. |
+| `/quadros/detalhes/?id=IDENTIFICADOR` | Página estática; consulta o quadro e suas colunas autenticadas no cliente. |
 
 O formulário usa labels, autocomplete, foco visível, indicação acessível de erros e estado de envio. Ao falhar a validação local, o foco vai ao primeiro campo inválido. Uma referência de envio e o botão desabilitado evitam submissões duplicadas. Senhas de cadastro aceitam de **15 a 128 caracteres**, inclusive espaços e frases longas. O backend faz sua própria validação; validação do navegador não é uma barreira de segurança.
 
@@ -52,13 +53,13 @@ Abrir/recarregar a página
 
 O `AuthProvider` não lê o token. O navegador envia o cookie via `credentials: "include"`. Não há armazenamento de token em localStorage ou sessionStorage. Login e cadastro recebem somente os dados públicos no JSON; logout só limpa o estado local depois que o servidor confirma a invalidação, ou quando ele já responde 401. Se o logout falhar por conexão, a interface informa o erro e permite tentar novamente.
 
-A proteção visual não torna arquivos estáticos secretos. Os recursos compilados continuam sendo arquivos públicos; os dados privados precisam vir de endpoints protegidos. O `AuthGuard` global já implementado no NestJS protege as rotas da API por padrão. A autorização dos futuros quadros/tarefas ainda precisará ser implementada no backend.
+A proteção visual não torna arquivos estáticos secretos. Os recursos compilados continuam sendo arquivos públicos; os dados privados precisam vir de endpoints protegidos. O `AuthGuard` global já implementado no NestJS protege as rotas da API por padrão. A autorização dos workspaces e quadros é verificada no backend por associação e papel, em todas as operações.
 
 ## Cliente HTTP
 
 `src/lib/api.ts` reutiliza o cliente da Etapa 02, agora com:
 
-- Métodos GET/POST, JSON, cookies e timeout de 15 segundos.
+- Métodos GET/POST/PATCH/DELETE, JSON, cookies e timeout de 15 segundos.
 - Base configurada por `NEXT_PUBLIC_API_URL`; fallback `/api`.
 - `ApiError` com status HTTP, erros de campos e `Retry-After`.
 - Tratamento de 204 sem tentar interpretar JSON.
@@ -183,7 +184,7 @@ Verificações de navegador realizadas com Chrome/Playwright já instalados, usa
 
 Os scripts de navegador foram temporários e não fazem parte da suíte npm; não é necessário instalar Playwright para executar os testes nativos do projeto.
 
-### Resultado final desta entrega
+### Resultado histórico da Etapa 03
 
 | Verificação executada | Resultado |
 | --- | --- |
@@ -197,8 +198,112 @@ Os scripts de navegador foram temporários e não fazem parte da suíte npm; nã
 
 ## Limitações e próxima etapa
 
-Não foram implementados OAuth, confirmação de e-mail, recuperação de senha, edição de perfil, workspaces, quadros persistidos, tarefas ou Kanban. Não houve deploy, git add, commit, push ou remoção de dados. Sessões expiradas permanecem no banco e os contadores de tentativas são locais à instância da API. Um backend com inicialização demorada pode exigir uma nova tentativa após o timeout; a interface distingue essa falha de uma sessão inválida.
+Não foram implementados OAuth, confirmação de e-mail, recuperação de senha, edição de perfil, CRUD de tarefas, drag-and-drop, convites ou gestão de membros. Não houve deploy, git add, commit, push ou remoção de dados. Sessões expiradas permanecem no banco e os contadores de tentativas são locais à instância da API. Um backend com inicialização demorada pode exigir uma nova tentativa após o timeout; a interface distingue essa falha de uma sessão inválida.
 
 A auditoria npm do frontend encontrou **7 alertas moderados em dependências transitivas das ferramentas de lint** (cadeia typescript-eslint/minimatch), sem alertas altos/críticos. A atualização dessa cadeia existente ficou registrada para manutenção, sem alterações fora do escopo da autenticação.
 
 Referências: [Next.js estático no Pages](https://developers.cloudflare.com/pages/framework-guides/nextjs/deploy-a-static-nextjs-site/), [Pages Functions localmente](https://developers.cloudflare.com/pages/functions/local-development/), [bindings/variáveis de ambiente](https://developers.cloudflare.com/pages/functions/bindings/), [roteamento das Functions](https://developers.cloudflare.com/pages/functions/routing/).
+
+
+## Etapa 04 — experiência de Quadros
+
+### Fluxo completo
+
+1. Cadastre-se ou entre na sua conta e abra **Quadros**. A sidebar continua apenas com Visão geral e Quadros.
+2. Sem workspace, aparece **Organize seus projetos em um só lugar**. Clique em **Criar workspace**, informe o nome e salve. Ele é selecionado automaticamente.
+3. Sem quadros, aparece **Nenhum quadro por aqui**. Clique em **Criar quadro**, informe o nome e salve. O servidor cria também as três colunas de forma atômica.
+4. O card mostra nome e data real de criação. **Abrir quadro** leva a `/quadros/detalhes/?id=...`; a API fornece workspace, nome e colunas ordenadas. Não há botão fictício para adicionar tarefas.
+5. O seletor **Workspace atual** troca a listagem. **Criar workspace** continua disponível; o menu discreto ao lado permite renomear e, para OWNER, excluir o workspace.
+6. O menu de cada quadro permite renomear e excluir para OWNER/ADMIN. Exclusões abrem confirmação com o nome do recurso e o alcance da remoção. Cancelar ou Escape preserva os dados.
+7. Atualizar a página consulta o PostgreSQL novamente e preserva uma seleção válida. Excluir o workspace selecionado faz a interface selecionar outro existente ou voltar ao primeiro acesso.
+8. A Visão geral mantém o layout e mostra somente a quantidade e até três quadros recentes **do workspace selecionado**, sem estatísticas de tarefas.
+
+### Arquivos criados e alterados
+
+```text
+src/features/workspaces/workspaces-provider.tsx  # lista, papel e seleção
+src/features/boards/
+  boards-screen.tsx       # listagem, seletor e ações
+  board-screen.tsx        # detalhe Kanban vindo da API
+  boards-summary.tsx      # resumo real na Visão geral
+  resource-dialog.tsx     # criar, renomear e confirmar exclusão
+  resource-state.tsx      # loading, erro e nova tentativa
+  types.ts               # respostas tipadas e URL de detalhes
+src/hooks/use-api-resource.ts                  # consulta cancelável e escritas autenticadas
+src/lib/resource-validation.ts                # validação antecipada do nome
+src/components/ui/dialog.tsx                  # dialog nativo, foco e Escape
+src/components/ui/action-menu.tsx             # ações com details/summary
+src/app/(private)/quadros/detalhes/page.tsx     # rota estática com Suspense
+```
+
+Arquivos modificados: `app/(private)/quadros/page.tsx` troca o placeholder pela experiência real; `app/(private)/page.tsx` usa o resumo; `app/(private)/layout.tsx` monta um WorkspacesProvider dentro do AuthGate; `components/auth/auth-provider.tsx` ganha uma ação estável para encerrar visualmente uma sessão após 401; `lib/api.ts` aceita PATCH/DELETE; `app/globals.css` acrescenta estilos; `test/api.test.mjs` testa os novos métodos. Criados também `test/resource-validation.test.mjs` e `test/boards.browser.mjs`. Nenhuma biblioteca foi adicionada e nenhum arquivo do proxy foi alterado.
+
+### Estado, acessibilidade e autorização
+
+O PostgreSQL é a fonte de verdade. Após cada escrita bem-sucedida a listagem é consultada novamente. O WorkspacesProvider mantém somente a seleção e a resposta da API em memória; `sessionStorage` guarda **apenas o ID da preferência de workspace por usuário**, sem credenciais nem cópia dos registros. Se a preferência não existir mais na listagem autorizada, o primeiro workspace válido é usado. Se o armazenamento estiver bloqueado, a aplicação continua funcionando.
+
+`useApiResource` associa cada resposta ao caminho solicitado e usa AbortController ao trocar de workspace/desmontar. Assim, uma resposta atrasada não substitui os quadros atuais. Erros de conexão/503 mostram mensagem e nova tentativa; **somente 401** marca a sessão como anônima e aciona o AuthGate. Não há segundo AuthProvider.
+
+OWNER/ADMIN veem criação/renomeação/exclusão de quadros e renomeação de workspace. Somente OWNER vê exclusão de workspace. MEMBER vê o seletor, os quadros e o Kanban em modo leitura; pode criar seu próprio workspace. O backend repete todas essas verificações.
+
+Diálogos usam `<dialog>.showModal()`: o navegador torna o restante da página inerte e o componente mantém a circulação por Tab/Shift+Tab entre seus controles. Após abrir, o formulário foca o campo de nome; a exclusão foca Cancelar. Escape fecha e o foco retorna ao acionador, ou ao conteúdo principal se ele foi removido após excluir. Durante uma gravação, fechamento e envio repetido ficam bloqueados até a resposta. Labels, mensagens de campo, regiões de status, menu por teclado e alvos de pelo menos 44px acompanham a identidade anterior.
+
+As colunas se empilham em telas menores. Nomes longos quebram linha; formulários e seletores respeitam a largura disponível. A preferência `prefers-reduced-motion` existente permanece ativa. Não foram adicionadas animações GSAP nesta etapa.
+
+### Exportação estática e execução
+
+Execute o frontend na raiz com `npm --prefix apps/web run dev` e o backend conforme [seu README](../server/README.md#executar-localmente). Acesse `http://localhost:3000`; a API local padrão é `http://localhost:3001/api`.
+
+A página de detalhes usa `useSearchParams` dentro de Suspense e recebe o ID no navegador. Não há `[id]`, SSR ou geração de rotas desconhecidas. `next.config.ts` continua com `output: "export"` e `trailingSlash: true`. Para validar o artefato compatível com Pages:
+
+```bash
+npm --prefix apps/web run lint
+npm --prefix apps/web test
+NEXT_PUBLIC_API_URL=/api npm --prefix apps/web run build
+```
+
+O build inclui `out/quadros/detalhes/index.html`. A Pages Function existente encaminha GET/POST/PATCH/DELETE e cookies para a API. A seção Wrangler acima permanece válida; nenhum deploy foi executado.
+
+### Roteiro de navegador reproduzível
+
+`test/boards.browser.mjs` usa Playwright opcional, fora das dependências da aplicação. Não é necessário instalá-lo para os testes nativos. Ele exige:
+
+- Backend compilado (`npm --prefix apps/server run build`), ligado a um banco `taskflow_etapa04_test*`, migrado conforme o README da API.
+- Frontend/exportação servida com proxy e cookies; `BROWSER_BASE_URL` aponta para sua origem (padrão `http://localhost:3100`). Inclua essa origem no CORS do backend.
+- Playwright e Chromium disponíveis no ambiente. Se Playwright estiver instalado externamente, informe `PLAYWRIGHT_MODULE` com o caminho do módulo `index.mjs`; `CHROMIUM_PATH` pode indicar um Chromium já instalado.
+- A variável `DATABASE_URL` de teste: o roteiro consulta o banco para verificar persistência e preparar os papéis de teste, sem criar endpoints de gestão de membros.
+
+Na raiz, com essas variáveis definidas no terminal:
+
+```bash
+node apps/web/test/boards.browser.mjs
+```
+
+O roteiro cria uma conta única `browser04-*@example.invalid`, exercita a interface e limpa somente a conta/workspaces que criou. Capturas ficam em `/tmp/taskflow-etapa04/`. Na validação desta entrega, o navegador usou a exportação de produção e a **própria função `onRequest` do proxy**, servida por um adaptador HTTP local na porta 3100, com API isolada na 3101. Isso valida o código do proxy e a experiência integrada, mas não equivale a uma execução do runtime workerd nesta etapa. O teste com workerd listado antes é histórico da Etapa 03.
+
+### Resultados da Etapa 04 — 12/11/2026
+
+| Verificação executada | Resultado |
+| --- | --- |
+| Lint frontend/backend | Passaram, sem avisos |
+| Build Next.js/Webpack e TypeScript | Passou; exportação estática com `/quadros/detalhes/` |
+| Build NestJS | Passou |
+| Testes unitários frontend | 19 passaram (4 arquivos); inclui PATCH/DELETE e nomes |
+| Configuração backend | 25 passaram |
+| HTTP completo com PostgreSQL real | 45 passaram, incluindo 16 novos da Etapa 04 |
+| Roteiro Playwright na exportação de produção | 13 verificações completas passaram |
+| Layout | Sem overflow em 320, 375, 768 e 1440 px; capturas mobile/desktop inspecionadas |
+| Teclado | Foco inicial, Tab contido, Escape e restauração do foco passaram |
+| Sessão e erros | Cadastro real, persistência, falha de rede com recuperação e 401 encaminhando para login passaram |
+| Permissões na UI e API | MEMBER somente leitura; ADMIN sem exclusão de workspace; OWNER com CRUD completo |
+| Console do navegador | Nenhum erro JavaScript durante o roteiro final |
+
+`npm test` executou os quatro arquivos com sucesso. Para obter também a contagem individual de 19 casos neste ambiente, foi executado `node --test --test-isolation=none --test-reporter=spec apps/web/test/*.test.mjs` a partir da raiz.
+
+O build inicialmente falhou dentro do sandbox ao interpretar a saída do subprocesso TypeScript; executado com permissão para subprocessos, passou sem alteração de configuração ou dependências. O único aviso restante é sobre um package-lock no diretório pessoal fora do repositório. Schema e duas migrações existentes foram validados no banco separado. Os servidores temporários da validação foram encerrados; nenhum deploy foi feito.
+
+Durante a validação, o navegador detectou foco inicial no botão de fechar e saída do foco dos controles ao circular por Tab; o diálogo foi corrigido para focar explicitamente o input ou Cancelar e manter a circulação por teclado. O CORS anterior permitia somente GET/POST e foi ampliado para PATCH/DELETE no backend.
+
+As respostas às 12 perguntas de entrevista, o desenho das relações e os endpoints estão no [README da API](../server/README.md#explicação-da-etapa-04-para-entrevistas).
+
+Próxima etapa: tarefas e eventual movimentação dos cartões. Não foram implementados responsáveis, prazos, comentários, anexos, convites ou automações. O estado vazio das colunas prepara o layout, sem ações que aparentem já funcionar.

@@ -26,6 +26,7 @@ interface AuthContextValue {
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => Promise<void>;
+  expireSession: () => void;
 }
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -35,6 +36,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: null,
   });
   const version = useRef(0);
+  const expireSession = useCallback(() => {
+    ++version.current;
+    setSession({ status: "anonymous", user: null });
+  }, []);
   const checkSession = useCallback((signal?: AbortSignal) => {
     const current = ++version.current;
     return apiRequest<AuthResponse>("/auth/me", { signal })
@@ -85,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
   const value: AuthContextValue = {
     session,
+    expireSession,
     retry: () => {
       setSession({ status: "checking", user: null });
       void checkSession();

@@ -60,3 +60,30 @@ test("rejeita resposta de health inesperada", async () => {
     Response.json({ status: "ok", database: "down" });
   await assert.rejects(getHealth(), ApiError);
 });
+test("PATCH envia nome com cookies e DELETE trata resposta vazia", async () => {
+  delete process.env.NEXT_PUBLIC_API_URL;
+  globalThis.fetch = async (url, init) => {
+    assert.equal(url, "/api/boards/isolated");
+    assert.equal(init.credentials, "include");
+    if (init.method === "PATCH") {
+      assert.deepEqual(JSON.parse(init.body), { name: "Novo nome" });
+      return Response.json({ id: "isolated", name: "Novo nome" });
+    }
+    assert.equal(init.method, "DELETE");
+    assert.equal(init.body, undefined);
+    return new Response(null, { status: 204 });
+  };
+  assert.equal(
+    (
+      await apiRequest("/boards/isolated", {
+        method: "PATCH",
+        body: { name: "Novo nome" },
+      })
+    ).name,
+    "Novo nome",
+  );
+  assert.equal(
+    await apiRequest("/boards/isolated", { method: "DELETE" }),
+    undefined,
+  );
+});

@@ -6,7 +6,7 @@ export function configureApp(app: INestApplication) {
   app.setGlobalPrefix('api');
   app.enableCors({
     origin: config.getOrThrow<string[]>('CORS_ORIGIN'),
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
     exposedHeaders: ['Retry-After'],
   });

@@ -40,7 +40,7 @@ export class ApiError extends Error {
 export async function apiRequest<T>(
   path: string,
   options: {
-    method?: "GET" | "POST";
+    method?: "GET" | "POST" | "PATCH" | "DELETE";
     body?: unknown;
     signal?: AbortSignal;
   } = {},

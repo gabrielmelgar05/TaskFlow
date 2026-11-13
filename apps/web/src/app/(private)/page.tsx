@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import { BoardsSummary } from "@/features/boards/boards-summary";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { SectionCard } from "@/components/ui/section-card";
 import { FlowIllustration } from "@/components/overview/flow-illustration";
@@ -113,10 +113,7 @@ export default function OverviewPage() {
             </Link>
           }
         >
-          <EmptyState
-            title="Tudo começa com uma ideia"
-            description="Este é o espaço dos seus futuros projetos. A criação de quadros estará disponível em breve."
-          />
+          <BoardsSummary />
         </SectionCard>
         <aside className="idea-card">
           <span className="eyebrow">UM LEMBRETE GENTIL</span>
