@@ -86,7 +86,18 @@ export async function apiRequest<T>(
       ) {
         for (const [key, value] of Object.entries(data.errors)) {
           if (
-            ["name", "email", "password"].includes(key) &&
+            [
+              "name",
+              "email",
+              "password",
+              "title",
+              "description",
+              "priority",
+              "dueAt",
+              "assigneeId",
+              "columnId",
+              "position",
+            ].includes(key) &&
             typeof value === "string"
           )
             fields[key] = value;

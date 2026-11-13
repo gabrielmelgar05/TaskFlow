@@ -1,6 +1,6 @@
-# TaskFlow — Web (Etapa 04)
+# TaskFlow — Web (Etapa 05)
 
-Next.js com **exportação estática**, React, TypeScript e Tailwind CSS. A Etapa 04 implementa workspaces, quadros e visualização Kanban com PostgreSQL real, mantendo a identidade visual, a sessão existente e o proxy Cloudflare. Não inclui SSR, CRUD de tarefas ou drag-and-drop. A seção **Etapa 04** abaixo registra os novos arquivos, o fluxo e os testes atuais; resultados anteriores estão identificados como históricos.
+Next.js com **exportação estática**, React, TypeScript e Tailwind CSS. A Etapa 05 transforma o Kanban em gerenciamento real de tarefas, com formulários, responsáveis, prazos, arrasto e ordenação persistente. A identidade visual, autenticação e proxy Cloudflare foram preservados. A seção **Etapa 05** descreve a entrega atual; as seções anteriores registram o histórico.
 
 ## Executar localmente
 
@@ -32,7 +32,7 @@ Veja [o README do backend](../server/README.md) para migração, banco, variáve
 | `/cadastro/` | Nome, e-mail, senha, confirmação e validação abaixo dos campos. Cadastro autentica e encaminha à Visão geral. |
 | `/` | Visão geral, agora exigindo sessão. Conteúdo da Etapa 02 preservado. |
 | `/quadros/` | Seleção e CRUD de workspaces e quadros, conforme permissões. |
-| `/quadros/detalhes/?id=IDENTIFICADOR` | Página estática; consulta o quadro e suas colunas autenticadas no cliente. |
+| `/quadros/detalhes/?id=IDENTIFICADOR` | Página estática; consulta quadro/colunas e gerencia tarefas autenticadas no cliente. |
 
 O formulário usa labels, autocomplete, foco visível, indicação acessível de erros e estado de envio. Ao falhar a validação local, o foco vai ao primeiro campo inválido. Uma referência de envio e o botão desabilitado evitam submissões duplicadas. Senhas de cadastro aceitam de **15 a 128 caracteres**, inclusive espaços e frases longas. O backend faz sua própria validação; validação do navegador não é uma barreira de segurança.
 
@@ -306,4 +306,136 @@ Durante a validação, o navegador detectou foco inicial no botão de fechar e s
 
 As respostas às 12 perguntas de entrevista, o desenho das relações e os endpoints estão no [README da API](../server/README.md#explicação-da-etapa-04-para-entrevistas).
 
-Próxima etapa: tarefas e eventual movimentação dos cartões. Não foram implementados responsáveis, prazos, comentários, anexos, convites ou automações. O estado vazio das colunas prepara o layout, sem ações que aparentem já funcionar.
+Na entrega da Etapa 04, as tarefas ainda estavam pendentes. A Etapa 05 abaixo implementa cartões, responsáveis, prazos e movimentação. Comentários, anexos, convites e automações continuam fora do escopo.
+
+
+## Etapa 05 — tarefas e Kanban funcional
+
+### Como usar
+
+Abra Quadros e entre em um quadro. Cada coluna mostra a quantidade real de cartões e um botão **+** com nome acessível “Criar tarefa em …”. No estado vazio, **Criar tarefa** abre o mesmo formulário. Informe título e, opcionalmente, descrição, prioridade, prazo e responsável. A coluna acionada já vem selecionada; na criação é possível escolher outra coluna do mesmo quadro.
+
+O título do cartão abre a edição. O menu **•••** oferece Editar tarefa, Mover tarefa e, quando permitido, Excluir tarefa. Excluir exige confirmação com o título do registro; Cancelar/Escape preserva a tarefa. A descrição completa fica no formulário, sem sobrecarregar os cartões.
+
+Arraste pela alça **⠿** para ordenar ou mudar de coluna. Uma coluna vazia também aceita o cartão. Escape cancela sem salvar. Com teclado, a alça recebe foco: Espaço inicia, setas deslocam, Espaço solta e Escape cancela. O menu **Mover tarefa** oferece uma alternativa com seleção de coluna e posição, utilizável por teclado ou toque.
+
+No celular, percorra as colunas horizontalmente dentro da região do Kanban. A página inteira mantém sua largura. O formulário continua em diálogo, com foco controlado e campos legíveis. As prioridades usam texto **Baixa/Média/Alta/Urgente**, além da cor. Responsável e prazo só aparecem quando definidos; tarefas vencidas fora de Concluído recebem a indicação textual **Em atraso**.
+
+### Arquivos
+
+```text
+src/features/tasks/
+  types.ts                        # contratos de tarefa, pessoa, prioridade e resumo
+  task-utils.ts                   # validação, datas e reordenação imutável
+  components/
+    task-board.tsx                # carrega tarefas, DndContext e snapshot/rollback
+    task-column.tsx               # área de destino, contagem e lista ordenada
+    task-card.tsx                 # useSortable, alça e ações conforme permissão
+    task-form.tsx                 # criar/editar e consulta de responsáveis
+    task-delete-dialog.tsx        # confirmação e exclusão HTTP
+    task-move-dialog.tsx          # movimentação alternativa acessível
+    task-summary.tsx              # indicadores reais na Visão geral
+test/tasks.test.mjs                # testes de ordem, datas e validação
+test/tasks.browser.mjs             # roteiro integrado com Chromium e PostgreSQL
+```
+
+Modificados: `features/boards/board-screen.tsx` passa a renderizar TaskBoard; `hooks/use-api-resource.ts` ganha `replace` para aplicar uma resposta confirmada ou um snapshot; `lib/api.ts` preserva erros dos novos campos; `app/(private)/page.tsx` inclui o resumo e atualiza os textos que anunciavam tarefas futuras; `app/globals.css` adiciona cartões/formulários e rolagem interna. `package.json` e `package-lock.json` registram as duas dependências. O roteiro `test/boards.browser.mjs` passou a aceitar também o prefixo de banco isolado da Etapa 05 para executar a regressão. Nenhuma rota dinâmica, sidebar adicional, Server Action, SSR ou alteração no proxy foi introduzida.
+
+### Dependências e drag-and-drop
+
+Foram adicionadas **`@dnd-kit/core` 6.3.1** e **`@dnd-kit/sortable` 10.0.0**, por npm. Suas peer dependencies aceitam a versão React 19 usada neste projeto; a integração também é verificada no build e no navegador. Bibliotecas auxiliares de acessibilidade/utilitários são transitivas. Não foi adicionada outra biblioteca de estado, formulários, datas ou animação.
+
+`DndContext` recebe PointerSensor e KeyboardSensor. A ativação por ponteiro exige deslocamento de 8px para separar clique de arrasto; apenas a alça tem `touch-action: none`, permitindo a leitura/rolagem pelo restante do cartão. Cada coluna usa `useDroppable`, inclusive vazia. Cada lista usa SortableContext e cada cartão usa useSortable. O overlay mostra o cartão durante o gesto. As instruções e anúncios do leitor de tela estão em português.
+
+Não há HTTP durante o movimento do cursor. Ao soltar, o cliente calcula destino/índice, aplica uma cópia imutável da ordem e envia **um PATCH**. Enquanto salva, novas movimentações ficam bloqueadas. A API devolve todas as tarefas do quadro na ordem confirmada; o frontend substitui a previsão visual pela resposta. Se ocorrer erro, restaura o snapshot, mostra a mensagem e tenta uma leitura curta para reconciliar com o banco caso a resposta tenha se perdido após o commit. Se a rede continuar indisponível, mantém o snapshot e permite tentar novamente. Cancelar o gesto não altera a lista nem chama a API. Formulários e exclusões só confirmam sucesso após resposta do servidor.
+
+O menu Mover tarefa usa a mesma função de persistência e rollback, sem duplicar a regra de ordenação. As posições do formulário são apresentadas a partir de 1; o corpo HTTP usa índices a partir de 0. O backend valida os limites e calcula novamente as posições sob lock/transação. Detalhes do algoritmo e da concorrência estão no [README da API](../server/README.md#persistência-ordenação-e-concorrência).
+
+### Formulários, datas e responsáveis
+
+O título aceita de 1 a 200 caracteres e a descrição até 5000. A prioridade padrão é Média. Erros aparecem no campo correspondente; o estado de envio e uma referência impedem submissões duplicadas. Uma falha mantém o diálogo e os valores digitados. Fechar/escapar durante o salvamento fica bloqueado para evitar ambiguidade da operação em andamento. Os diálogos reutilizam foco inicial, contenção por Tab e restauração de foco da Etapa 04.
+
+O seletor de responsáveis consulta `/api/workspaces/:id/members` somente ao abrir o formulário. A resposta contém id/nome dos membros reais, incluindo a própria pessoa; não cria convites nem gestão de equipe. Com um único membro, a interface explica que ele pode assumir a tarefa ou deixá-la sem responsável. Em falha da consulta, há nova tentativa e o formulário é preservado.
+
+Prazo é uma data civil, sem hora. O input envia `AAAA-MM-DD`; a API salva meia-noite UTC e o cartão formata o mesmo dia usando UTC. Isso evita transformar, por exemplo, 20/11 em 19/11 em Porto Velho. Limpar prazo ou responsável envia `null`. Atraso compara o dia do prazo com o dia local do navegador e não marca cartões de Concluído como vencidos.
+
+OWNER e ADMIN têm todas as operações de tarefas. MEMBER pode criar, consultar, editar e mover todas as tarefas do workspace, mas só vê Excluir nas suas próprias tarefas. A API repete a verificação. Essa permissão operacional não muda as restrições administrativas de workspaces/quadros.
+
+### Visão geral e compatibilidade
+
+O layout da Visão geral foi mantido. Um resumo simples mostra total de tarefas acessíveis, Em andamento, Concluídas e Em atraso. Uma única chamada de resumo executa contagens no PostgreSQL, sem carregar todos os cartões para contá-los. A lista de quadros recentes da etapa anterior permanece. Erro de resumo mostra mensagem/nova tentativa, sem números inventados.
+
+`output: "export"`, `/quadros/detalhes/?id=...`, Suspense, cookies HTTP-only e proxy `/api` continuam iguais. O estado em memória reflete os dados da API; tarefas não são gravadas em localStorage/sessionStorage. O único sessionStorage existente continua sendo a preferência de workspace da Etapa 04. Respostas 401 acionam o AuthProvider existente; falhas de rede/503 não são tratadas como sessão expirada.
+
+O CSS de movimento reduzido existente continua ativo. A rolagem do sensor de teclado usa `auto`; não foram adicionadas animações GSAP nem efeitos decorativos.
+
+### Executar e testar
+
+Na raiz, com PostgreSQL e os ambientes privados configurados:
+
+```bash
+docker compose up -d db
+npm --prefix apps/server run start:dev
+# Em outro terminal:
+npm --prefix apps/web run dev
+```
+
+Abra `http://localhost:3000`. Em um checkout novo, execute `npm ci` em cada aplicação. Gere Prisma Client e aplique as duas migrações existentes conforme o README da API. Nenhuma migração foi acrescentada nesta etapa.
+
+Verificações técnicas na raiz:
+
+```bash
+npm --prefix apps/server run lint
+npm --prefix apps/server run build
+npm --prefix apps/server test
+npm --prefix apps/web run lint
+npm --prefix apps/web test
+NEXT_PUBLIC_API_URL=/api npm --prefix apps/web run build
+```
+
+Os testes HTTP precisam do banco isolado descrito no [README da API](../server/README.md#executar-e-testar), com `RUN_DATABASE_TESTS=true`. O build deve continuar gerando `apps/web/out/quadros/detalhes/index.html` e `_routes.json`.
+
+Para o roteiro de navegador, reutilize Playwright/Chromium disponíveis no ambiente. Eles são opcionais e não fazem parte das dependências de produção. Informe `PLAYWRIGHT_MODULE` se o módulo estiver fora do projeto e `CHROMIUM_PATH` para usar um navegador já instalado. Com frontend/proxy e API temporários ligados ao banco de teste, execute:
+
+```bash
+export DATABASE_URL='postgresql://taskflow:taskflow_dev_123@localhost:5433/taskflow_etapa05_test_20261113?schema=public'
+# BROWSER_BASE_URL é a origem do frontend de teste; padrão http://localhost:3100.
+node apps/web/test/tasks.browser.mjs
+```
+
+O roteiro cria uma conta real pelo cadastro, seu workspace/quadro e um MEMBER de fixture; limpa somente esses registros ao terminar. Testa formulário, mouse, cancelamento, falha/rollback, touch pela alternativa, teclado, recarga, contagens, permissões e login/logout. Capturas ficam em `/tmp/taskflow-etapa05`. Usa o fuso America/Porto_Velho e movimento reduzido. Durante a validação, a exportação estática é servida com a própria `onRequest` da Pages Function em um adaptador HTTP local e API isolada na porta 3101. Isso valida o código do proxy; não equivale a repetir o runtime workerd.
+
+### Resultados da Etapa 05
+
+Verificação executada em **13/11/2026**, com exportação estática, a própria função do proxy, API e PostgreSQL de teste:
+
+| Verificação | Resultado real |
+| --- | --- |
+| Lint web/server | Passaram, sem avisos |
+| Builds Next.js/TypeScript e NestJS | Passaram |
+| Exportação Cloudflare | `apps/web/out` contém a rota estática de detalhes e `_routes.json` |
+| Testes unitários frontend | 26 passaram (5 arquivos); HTTP, validação, proxy, datas e ordenação |
+| Testes de configuração backend | 25 passaram |
+| Testes HTTP + PostgreSQL | 75 passaram, incluindo 30 casos da nova suíte |
+| Roteiro de tarefas | 15 verificações completas passaram |
+| Roteiro anterior de workspaces/quadros | 13 verificações completas passaram |
+| Mouse | Reordenação, troca de coluna, destino vazio, cancelamento e um PATCH por drop passaram |
+| Teclado | Arrasto por Espaço/setas e persistência passaram; diálogos mantêm o controle de foco |
+| Touch/mobile | Alternativa Mover tarefa por toque passou; rolagem horizontal contida no Kanban |
+| Datas | Definição, remoção e preservação do dia no fuso America/Porto_Velho passaram |
+| Permissões | MEMBER criou/editou e excluiu somente sua tarefa; API bloqueou exclusão alheia |
+| Rede e rollback | Falhas HTTP injetadas preservaram formulário ou reverteram a previsão visual; nova tentativa funcionou |
+| Recarga e resumo | Dados, posição, responsáveis/prazos e contagens reais preservados |
+| Layout/console | 320, 375, 768 e 1440 px sem overflow da página; zero erros JavaScript no roteiro final |
+
+As capturas `/tmp/taskflow-etapa05/kanban-desktop.png` e `kanban-mobile.png` foram inspecionadas. O arrasto por ponteiro usa mouse/touch; a verificação automatizada de touch nesta entrega exercitou especificamente a alternativa por diálogo, sem afirmar teste de arrasto físico por toque. Não foi repetido workerd: foi validado o código da Pages Function no adaptador local. Nenhum deploy foi executado.
+
+`npm test` aprovou os cinco arquivos. A contagem individual também foi verificada com `node --test --test-isolation=none --test-reporter=spec apps/web/test/*.test.mjs` na raiz. A suíte HTTP foi executada em banco separado com as duas migrações originais; não houve alteração do schema.
+
+Foi corrigida no backend a aceitação indevida de PATCH vazio. Na integração do dnd-kit, os callbacks de ref foram desestruturados para que o lint não confundisse o objeto do hook com uma leitura de ref durante renderização. A movimentação também reconcilia por GET após uma falha, além de restaurar o snapshot. O roteiro aguarda a confirmação da API antes de comparar o banco, distingue carregamento dos responsáveis e espera o layout estabilizar após mudar o viewport — redimensionar durante um gesto cancela o sensor por design da biblioteca.
+
+O build conserva o aviso ambiental sobre um package-lock no diretório pessoal fora do repositório. A instalação com npm reportou os mesmos 7 alertas moderados já documentados em ferramentas do frontend; não foram realizadas atualizações de manutenção fora desta etapa. Os servidores temporários de validação foram encerrados. Não houve git add, commit, push, merge ou alteração de dados reais.
+
+As 14 explicações didáticas sobre tarefas, chaves estrangeiras, Prisma, CRUD, drag-and-drop, posição, transação, rollback e concorrência estão no [README da API](../server/README.md#explicação-para-entrevistas--tarefas).
+
+Limitações: outras pessoas veem atualizações ao consultar novamente, sem WebSockets. Não há convites, gestão de membros, notificações, comentários, anexos, automações ou deploy. O escopo termina na Etapa 05.

@@ -12,9 +12,9 @@ const { chromium } = await import(
   process.env.PLAYWRIGHT_MODULE ?? "playwright"
 );
 const databaseUrl = process.env.DATABASE_URL ?? "";
-if (!new URL(databaseUrl).pathname.slice(1).startsWith("taskflow_etapa04_test"))
+if (!/^taskflow_etapa0[45]_test/.test(new URL(databaseUrl).pathname.slice(1)))
   throw new Error(
-    "Use somente o banco de testes isolado taskflow_etapa04_test*.",
+    "Use somente um banco isolado taskflow_etapa04_test* ou taskflow_etapa05_test*.",
   );
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: databaseUrl }),

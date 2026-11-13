@@ -50,10 +50,12 @@ export function useApiResource<T>(path: string | null) {
     return () => controller.abort();
   }, [path, key, request]);
   const reload = useCallback(() => setAttempt((value) => value + 1), []);
+  const replace = useCallback((data: T) => setResult({ key, data }), [key]);
   return {
     data: path && result.key === key ? result.data : undefined,
     error: path && result.key === key ? result.error : undefined,
     loading: !!path && result.key !== key,
     reload,
+    replace,
   };
 }

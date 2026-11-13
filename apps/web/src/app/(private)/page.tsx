@@ -1,3 +1,4 @@
+import { TaskSummary } from "@/features/tasks/components/task-summary";
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/button";
 import { BoardsSummary } from "@/features/boards/boards-summary";
@@ -22,14 +23,14 @@ const steps: {
   {
     number: "02",
     title: "Cada passo conta",
-    text: "Em breve, transforme grandes planos em pequenas tarefas.",
+    text: "Transforme grandes planos em pequenas tarefas.",
     icon: "layers",
     color: "bg-blue",
   },
   {
     number: "03",
     title: "Encontre seu ritmo",
-    text: "Em breve, acompanhe o progresso e celebre o caminho.",
+    text: "Acompanhe o progresso e celebre o caminho.",
     icon: "target",
     color: "bg-yellow",
   },
@@ -100,6 +101,7 @@ export default function OverviewPage() {
           </article>
         ))}
       </div>
+      <TaskSummary />
       <div className="mt-7 grid gap-5 xl:grid-cols-[1.8fr_1fr]">
         <SectionCard
           title="Seus quadros"

@@ -44,6 +44,11 @@ export class WorkspacesController {
   get(@Param('id') id: string, @Req() request: AuthenticatedRequest) {
     return this.workspaces.requireMember(id, request.auth.user.id);
   }
+  @Get(':id/members')
+  @Header('Cache-Control', 'no-store')
+  members(@Param('id') id: string, @Req() request: AuthenticatedRequest) {
+    return this.workspaces.members(id, request.auth.user.id);
+  }
   @Patch(':id')
   @Header('Cache-Control', 'no-store')
   update(
