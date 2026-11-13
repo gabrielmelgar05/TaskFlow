@@ -1,6 +1,6 @@
-# TaskFlow — Web (Etapa 05)
+# TaskFlow — Web (Etapa 06)
 
-Next.js com **exportação estática**, React, TypeScript e Tailwind CSS. A Etapa 05 transforma o Kanban em gerenciamento real de tarefas, com formulários, responsáveis, prazos, arrasto e ordenação persistente. A identidade visual, autenticação e proxy Cloudflare foram preservados. A seção **Etapa 05** descreve a entrega atual; as seções anteriores registram o histórico.
+Next.js com **exportação estática**, React, TypeScript e Tailwind CSS. A Etapa 06 entrega um dashboard por workspace com indicadores reais, tarefas de atenção e progresso de quadros, além de refinamentos de acessibilidade e navegação. Autenticação, identidade visual, Kanban e proxy Cloudflare foram preservados. A seção **Etapa 06** descreve a entrega atual; as demais registram seu histórico.
 
 ## Executar localmente
 
@@ -30,7 +30,7 @@ Veja [o README do backend](../server/README.md) para migração, banco, variáve
 | --- | --- |
 | `/login/` | E-mail, senha, mostrar/ocultar senha, feedback de erro e link para cadastro. |
 | `/cadastro/` | Nome, e-mail, senha, confirmação e validação abaixo dos campos. Cadastro autentica e encaminha à Visão geral. |
-| `/` | Visão geral, agora exigindo sessão. Conteúdo da Etapa 02 preservado. |
+| `/` | Dashboard autenticado do workspace selecionado, com indicadores, atenção e quadros. |
 | `/quadros/` | Seleção e CRUD de workspaces e quadros, conforme permissões. |
 | `/quadros/detalhes/?id=IDENTIFICADOR` | Página estática; consulta quadro/colunas e gerencia tarefas autenticadas no cliente. |
 
@@ -439,3 +439,129 @@ O build conserva o aviso ambiental sobre um package-lock no diretório pessoal f
 As 14 explicações didáticas sobre tarefas, chaves estrangeiras, Prisma, CRUD, drag-and-drop, posição, transação, rollback e concorrência estão no [README da API](../server/README.md#explicação-para-entrevistas--tarefas).
 
 Limitações: outras pessoas veem atualizações ao consultar novamente, sem WebSockets. Não há convites, gestão de membros, notificações, comentários, anexos, automações ou deploy. O escopo termina na Etapa 05.
+
+
+## Etapa 06 — dashboard e refinamentos
+
+### Experiência da Visão geral
+
+A página agora usa o mesmo seletor **Workspace atual** de Quadros. Alterar a seleção atualiza indicadores, tarefas e quadros juntos, sem misturar workspaces. A preferência continua guardada apenas como ID em sessionStorage; todos os registros vêm da API. A sidebar mantém exatamente **Visão geral** e **Quadros**. Sidebar/cabeçalho exibem o nome real do workspace, com nomes longos acomodados sem alargar a página.
+
+Os quatro cards mostram **Total de tarefas**, **Em andamento**, **Concluídas** e **Atrasadas** do workspace selecionado. Os números são retornados pelo backend. Conclusão agora depende de `BoardColumn.status === DONE`, não do nome ou da posição da coluna. Esse mesmo status governa o indicador de atraso do cartão no Kanban.
+
+**Precisa de atenção** mostra até cinco tarefas: atrasadas primeiro, depois prazos nos próximos sete dias e prioridades altas/urgentes pertinentes. Cada item tem título, prioridade textual, prazo e quadro. O link leva à rota estática existente com `&task=ID`, abrindo o **mesmo TaskForm do Kanban**. Não há editor duplicado no dashboard. Fechar ou salvar o diálogo não o reabre sozinho; um ID não disponível recebe mensagem discreta no quadro.
+
+**Seus quadros** mostra nomes reais, quantidade de tarefas, quantidade concluída e progresso calculado no backend. Quadros sem tarefas mostram “Sem tarefas”, sem percentual inventado. A ordem é de criação mais recente, sem prometer atividade recente que o modelo ainda não registra.
+
+### Estados vazios, erros e atualização
+
+Sem workspace, o usuário pode criar o primeiro pela própria Visão geral. Workspace sem quadros oferece acesso a Quadros. Quadros sem tarefas explicam como começar. Quando não há pendências relevantes, a tela informa que não há prazos próximos/vencidos ou prioridades altas, sem dizer que todas as tarefas foram concluídas.
+
+Carregamento mostra uma espera adequada; falha mostra erro e nova tentativa. Não são exibidos zeros provisórios enquanto a API está indisponível. Resposta 401 segue o AuthProvider existente; rede/503 permanece como indisponibilidade, sem concluir que a sessão é inválida.
+
+A tela faz uma chamada agregada por visita a `/api/dashboard/summary?workspaceId=...&today=...`. `useApiResource` continua sendo a estratégia de dados: ao trocar de workspace, aborta a consulta anterior e associa a resposta ao caminho correto. Reabrir a Visão geral depois de criar, editar, mover ou excluir no Kanban consulta os dados atuais; o foco da janela também atualiza o resumo. Não foi adicionada biblioteca de estado, cache ou polling.
+
+Os antigos TaskSummary e BoardsSummary foram transformados em componentes de apresentação. Eles recebem os dados do dashboard e não fazem buscas próprias. Isso remove a antiga mistura entre resumo global de tarefas e quadros de apenas um workspace, além de eliminar consultas redundantes na página.
+
+### Arquivos principais
+
+```text
+src/features/dashboard/
+  dashboard-screen.tsx      # dados, estados, seleção e diálogo de workspace
+  attention-list.tsx        # tarefas relevantes e links diretos
+  types.ts                  # contrato da resposta agregada
+src/features/workspaces/workspace-toolbar.tsx  # seletor e ações compartilhados
+src/features/tasks/components/task-summary.tsx # quatro indicadores, sem fetch
+src/features/boards/boards-summary.tsx          # quadros/progresso, sem fetch
+test/dashboard.test.mjs                       # segurança da URL estática
+test/dashboard.browser.mjs                    # fluxo integrado do dashboard
+```
+
+Modificados também: `app/(private)/page.tsx` renderiza DashboardScreen; `boards-screen.tsx` reutiliza a toolbar; `board-screen.tsx` sincroniza o workspace ao abrir um quadro e lê o ID opcional da tarefa; `types.ts` inclui o status das colunas e a URL opcional de tarefa; `task-board.tsx` abre o editor existente por link direto; `task-column.tsx` usa status em vez de posição; `workspaces-provider.tsx` oferece seleção estável; `app-shell.tsx` mostra o workspace real. Autenticação/formulários ganharam ajustes de anúncio e foco dos erros; `connection-notice.tsx` informa honestamente que os dados podem estar desatualizados; `globals.css` mantém paleta, grades e componentes consistentes. Os roteiros anteriores aceitam o banco isolado da Etapa 06 e os rótulos atualizados.
+
+Nenhuma biblioteca ou dependência foi adicionada. `next.config.ts`, proxy `/api`, cookies HTTP-only, sessão, permissões e navegação principal continuam preservados.
+
+### Refinamentos de UI/UX e acessibilidade
+
+- Cards com números legíveis, ícones discretos e cores da paleta existente; sem gráficos decorativos.
+- Espaçamentos e hierarquia coerentes nas listas, bordas/superfícies compartilhadas e contraste do progresso reforçado.
+- Nome do workspace verdadeiro na navegação; MEMBER aparece como “Membro”, pois pode trabalhar nas tarefas, mesmo sem administrar quadros/workspaces.
+- Cores das colunas seguem o status explícito; rótulos de prioridade/atraso continuam independentes da cor.
+- Links e botões de navegação dizem o que fazem. Acesso ao editor por URL reutiliza seus labels, validação, confirmação e contenção de foco.
+- Erros de login/cadastro são anunciados; erros de campo retornados pela API recebem foco após os controles serem habilitados novamente.
+- Mensagem para tarefa indisponível evita abrir um editor vazio ou revelar um recurso alheio.
+- Diálogos, menu de perfil, hover/foco e estados desabilitados foram revisados; exclusões continuam exigindo confirmação.
+- Sem novas animações GSAP. O CSS de movimento reduzido e a movimentação acessível da Etapa 05 permanecem.
+
+As grades usam os utilitários Tailwind existentes e CSS compartilhado. No celular, os indicadores ficam em duas colunas e as seções se empilham. Modais têm altura/largura limitadas à tela e rolagem interna. O Kanban continua horizontal apenas dentro da sua região.
+
+### Banco e execução
+
+A nova migração `20261113040000_add_column_status` adiciona o estado explícito às colunas e preenche registros antigos pela regra da Etapa 05. Foi validada sobre dados anteriores e aplicada ao Compose local com comparação dos campos antigos, sem perda de registros. Os detalhes estão no [README da API](../server/README.md#estado-explícito-das-tarefas-e-migração).
+
+Use Node.js 24 e npm. Em `apps/server`:
+
+```bash
+npm exec -- prisma generate --config prisma7.config.ts
+npm exec -- prisma migrate deploy --config prisma7.config.ts
+npm run start:dev
+```
+
+Com PostgreSQL ativo (`docker compose up -d db`), inicie em outro terminal, na raiz, `npm --prefix apps/web run dev` e abra `http://localhost:3000`. Reinicie uma API antiga para que use o client e os campos novos. Não altere as migrações anteriores nem use reset.
+
+Validação na raiz:
+
+```bash
+npm --prefix apps/web run lint
+npm --prefix apps/web test
+NEXT_PUBLIC_API_URL=/api npm --prefix apps/web run build
+npm --prefix apps/server run lint
+npm --prefix apps/server run build
+npm --prefix apps/server test
+```
+
+Os testes HTTP usam o banco `taskflow_etapa06_test*` e `RUN_DATABASE_TESTS=true`, conforme o [README da API](../server/README.md#executar-e-testar-a-etapa-06). O build continua gerando `apps/web/out`, incluindo `/quadros/detalhes/index.html` e `_routes.json`, sem SSR ou rotas dinâmicas desconhecidas.
+
+### Navegador e resultados da Etapa 06
+
+Os roteiros `dashboard.browser.mjs`, `tasks.browser.mjs` e `boards.browser.mjs` usam Playwright/Chromium já disponíveis, sem adicioná-los às dependências de produção. Configure `DATABASE_URL` somente para o banco isolado, `BROWSER_BASE_URL` para a origem do frontend de teste, `PLAYWRIGHT_MODULE` se o módulo estiver instalado externamente e `CHROMIUM_PATH` se necessário. Com frontend/proxy e API de teste ativos, na raiz:
+
+```bash
+node apps/web/test/dashboard.browser.mjs
+node apps/web/test/tasks.browser.mjs
+node apps/web/test/boards.browser.mjs
+```
+
+Cada roteiro cria contas/workspaces próprios e limpa apenas suas fixtures. O do dashboard usa o fuso America/Porto_Velho, movimento reduzido e larguras de 320, 375, 768, 1024 e 1440 px. Capturas ficam em `/tmp/taskflow-etapa06/`. Na validação local, os arquivos exportados passam pela própria função `onRequest` do proxy em um adaptador HTTP temporário; isso não equivale a repetir o runtime workerd.
+
+Validação executada em **13/11/2026**:
+
+| Verificação executada | Resultado real |
+| --- | --- |
+| Lint frontend e backend | Passaram, sem avisos |
+| Build Next.js estático + TypeScript e build NestJS | Passaram |
+| Testes unitários frontend | 27 passaram (6 arquivos) |
+| Configuração backend | 25 passaram |
+| HTTP + PostgreSQL isolado | 91 passaram, incluindo 16 novos do dashboard |
+| Roteiro de dashboard | 12 verificações completas passaram |
+| Regressão de tarefas | 15 verificações completas passaram |
+| Regressão de workspaces/quadros | 13 verificações completas passaram |
+| Atualização ao revisitar | Criação, edição, conclusão e exclusão refletidas nos indicadores e listas |
+| Datas e classificação | Dia civil preservado; status explícito independente do nome/posição |
+| Loading/erro/vazio | Sem números fictícios; nova tentativa preserva a sessão |
+| Acessibilidade básica | Links por teclado, perfil por Escape, erros anunciados, foco e diálogo em 320 px passaram |
+| Responsividade | 320, 375, 768, 1024 e 1440 px sem overflow da página; rolagem interna do Kanban preservada |
+| Console | Nenhum erro JavaScript nos roteiros finais |
+| Prisma e dados locais | Nova migração válida e aplicada, preservando contagens/hashes dos campos antigos |
+
+As capturas `dashboard-desktop.png` e `dashboard-mobile.png` em `/tmp/taskflow-etapa06/` foram inspecionadas. A contagem individual de testes também foi executada com `node --test --test-isolation=none --test-reporter=spec apps/web/test/*.test.mjs`. As respostas de falha de rede/503 do navegador foram injetadas de forma controlada; a navegação normal, o CRUD e os agregados usaram API/PostgreSQL reais.
+
+Correções principais: o resumo deixou de misturar workspaces; a conclusão deixou de depender da posição; o workspace fictício no cabeçalho foi substituído pelo real; erros de campo receberam anúncio/foco adequado; e o editor por link fecha sem reabrir sozinho. O roteiro antigo de exclusão foi corrigido para aguardar a confirmação HTTP antes de consultar o banco. O preview temporário foi reiniciado quando ficou indisponível durante uma tentativa; os três roteiros finais passaram.
+
+Não foi adicionado pacote. Não houve alteração da arquitetura de sessão nem do proxy, deploy ou operação Git de escrita. Os servidores temporários foram encerrados. O único aviso de build restante se refere ao package-lock no diretório pessoal, fora do repositório. Os resultados das etapas anteriores continuam como histórico.
+
+### Fluxo técnico e preparação para entrevista
+
+O seletor fornece um ID de workspace autorizado → `useApiResource` solicita o resumo com cookies → controller valida a query → DashboardService confirma WorkspaceMember → Prisma executa contagens e consultas limitadas no PostgreSQL → JSON tipado chega aos componentes de indicadores, atenção e quadros. As oito explicações sobre agregação, autorização, atualização, estados, responsividade e organização estão no [README da API](../server/README.md#explicação-para-entrevistas--dashboard).
+
+Limitações: sem sincronização em tempo real, paginação de quadros ou relatórios avançados. A atenção é limitada a cinco itens relevantes; a lista completa continua no Kanban. Não foram iniciadas as Etapas 07 ou 08 e não houve deploy.

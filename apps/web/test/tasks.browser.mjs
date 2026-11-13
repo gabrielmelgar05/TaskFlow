@@ -12,8 +12,8 @@ const { chromium } = await import(
   process.env.PLAYWRIGHT_MODULE ?? "playwright"
 );
 const connectionString = process.env.DATABASE_URL ?? "";
-if (!/^taskflow_etapa05_test/.test(new URL(connectionString).pathname.slice(1)))
-  throw new Error("Use somente um banco isolado taskflow_etapa05_test*.");
+if (!/^taskflow_etapa0[56]_test/.test(new URL(connectionString).pathname.slice(1)))
+  throw new Error("Use somente um banco isolado taskflow_etapa05_test* ou taskflow_etapa06_test*.");
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString }),
 });
@@ -599,7 +599,7 @@ try {
   await page.getByLabel("Senha", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   await page.waitForURL(baseURL + "/");
-  const summary = page.getByLabel("Resumo das tarefas acessíveis");
+  const summary = page.getByLabel("Resumo de tarefas do workspace");
   await visible(summary.locator("dd").first());
   assert.deepEqual(await summary.locator("dd").allTextContents(), [
     "3",

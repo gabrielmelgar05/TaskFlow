@@ -7,8 +7,14 @@ export interface Board {
 }
 export interface BoardDetail extends Board {
   workspace: Workspace;
-  columns: { id: string; name: string; position: number }[];
+  columns: BoardColumn[];
 }
-export function boardHref(id: string) {
-  return `/quadros/detalhes/?id=${encodeURIComponent(id)}`;
+export interface BoardColumn {
+  id: string;
+  name: string;
+  position: number;
+  status: "TODO" | "IN_PROGRESS" | "DONE";
+}
+export function boardHref(id: string, taskId?: string) {
+  return `/quadros/detalhes/?id=${encodeURIComponent(id)}${taskId ? `&task=${encodeURIComponent(taskId)}` : ""}`;
 }

@@ -40,12 +40,30 @@ const collisions: CollisionDetection = (args) => {
   );
   return cards.length ? cards : hits.length ? hits : closestCorners(args);
 };
-export function TaskBoard({ board }: { board: BoardDetail }) {
+export function TaskBoard({
+  board,
+  initialTaskId,
+}: {
+  board: BoardDetail;
+  initialTaskId?: string | null;
+}) {
   const resource = useApiResource<Task[]>(`/boards/${board.id}/tasks`);
   const request = useSessionRequest();
   const { session } = useAuth();
   const tasks = resource.data ?? [];
-  const [dialog, setDialog] = useState<DialogState | null>(null);
+  const [manualDialog, setDialog] = useState<DialogState | null>(null);
+  const [dismissedTaskId, setDismissedTaskId] = useState<string | null>(null);
+  const linkedTask =
+    initialTaskId && initialTaskId !== dismissedTaskId
+      ? tasks.find((task) => task.id === initialTaskId)
+      : undefined;
+  const dialog: DialogState | null =
+    manualDialog ?? (linkedTask ? { kind: "edit", task: linkedTask } : null);
+  function closeDialog() {
+    setDialog(null);
+    setDismissedTaskId(initialTaskId ?? null);
+  }
+
   const [active, setActive] = useState<Task | null>(null);
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
@@ -144,7 +162,7 @@ export function TaskBoard({ board }: { board: BoardDetail }) {
         : "Tarefa atualizada com sucesso.",
     );
     setError("");
-    setDialog(null);
+    closeDialog();
   }
   const open = (state: DialogState) => {
     setError("");
@@ -156,6 +174,11 @@ export function TaskBoard({ board }: { board: BoardDetail }) {
     return <ResourceError message={resource.error} retry={resource.reload} />;
   return (
     <>
+      {initialTaskId && initialTaskId !== dismissedTaskId && !linkedTask && (
+        <p className="form-alert mb-5" role="status">
+          A tarefa solicitada não está disponível neste quadro.
+        </p>
+      )}
       {notice && (
         <p className="success-notice" role="status">
           {notice}
@@ -245,17 +268,17 @@ export function TaskBoard({ board }: { board: BoardDetail }) {
             dialog.kind === "create" ? dialog.columnId : dialog.task.columnId
           }
           task={dialog.kind === "edit" ? dialog.task : undefined}
-          onClose={() => setDialog(null)}
+          onClose={closeDialog}
           onSaved={saved}
         />
       )}
       {dialog?.kind === "delete" && (
         <TaskDeleteDialog
           task={dialog.task}
-          onClose={() => setDialog(null)}
+          onClose={closeDialog}
           onDeleted={() => {
             resource.replace(removeTaskLocally(tasks, dialog.task));
-            setDialog(null);
+            closeDialog();
             setNotice("Tarefa excluída com sucesso.");
           }}
         />
@@ -268,7 +291,7 @@ export function TaskBoard({ board }: { board: BoardDetail }) {
           busy={busy}
           error={error}
           move={move}
-          onClose={() => setDialog(null)}
+          onClose={closeDialog}
         />
       )}
     </>

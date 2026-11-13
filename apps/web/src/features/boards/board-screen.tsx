@@ -6,19 +6,25 @@ import { useApiResource } from "@/hooks/use-api-resource";
 import { ResourceError, ResourceLoading } from "./resource-state";
 import type { BoardDetail } from "./types";
 import { TaskBoard } from "@/features/tasks/components/task-board";
+import { useWorkspaces } from "@/features/workspaces/workspaces-provider";
 
 export function BoardScreen() {
-  const id = useSearchParams().get("id");
+  const params = useSearchParams();
+  const id = params.get("id");
+  const { select } = useWorkspaces();
   const resource = useApiResource<BoardDetail>(
     id ? `/boards/${encodeURIComponent(id)}` : null,
   );
   const board = resource.data;
   useEffect(() => {
-    if (board) document.title = `${board.name} | TaskFlow`;
+    if (board) {
+      document.title = `${board.name} | TaskFlow`;
+      select(board.workspaceId);
+    }
     return () => {
       document.title = "Quadro | TaskFlow";
     };
-  }, [board]);
+  }, [board, select]);
   return (
     <>
       <ButtonLink variant="secondary" href="/quadros/">
@@ -42,7 +48,11 @@ export function BoardScreen() {
                 <p>Um passo de cada vez, do começo à conclusão.</p>
               </div>
             </div>
-            <TaskBoard key={board.id} board={board} />
+            <TaskBoard
+              key={board.id}
+              board={board}
+              initialTaskId={params.get("task")}
+            />
           </>
         )
       )}

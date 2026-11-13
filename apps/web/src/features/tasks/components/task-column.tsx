@@ -6,6 +6,7 @@ import {
 } from "@dnd-kit/sortable";
 import { TaskCard } from "./task-card";
 import type { Task } from "../types";
+import type { BoardColumn } from "@/features/boards/types";
 export function TaskColumn({
   column,
   tasks,
@@ -17,7 +18,7 @@ export function TaskColumn({
   remove,
   move,
 }: {
-  column: { id: string; name: string; position: number };
+  column: BoardColumn;
   tasks: Task[];
   busy: boolean;
   userId: string;
@@ -36,13 +37,16 @@ export function TaskColumn({
     <section
       ref={setNodeRef}
       data-column-id={column.id}
-      className={`kanban-column ${isOver ? "kanban-column-over" : ""}`}
+      className={`kanban-column kanban-status-${column.status.toLowerCase()} ${isOver ? "kanban-column-over" : ""}`}
       aria-labelledby={`column-${column.id}`}
     >
       <div className="kanban-column-heading">
         <span className="column-dot" aria-hidden="true" />
         <h2 id={`column-${column.id}`}>{column.name}</h2>
-        <span className="task-count" aria-label={`${tasks.length} tarefas`}>
+        <span
+          className="task-count"
+          aria-label={`${tasks.length} ${tasks.length === 1 ? "tarefa" : "tarefas"}`}
+        >
           {tasks.length}
         </span>
         <button
@@ -63,7 +67,7 @@ export function TaskColumn({
             <TaskCard
               key={task.id}
               task={task}
-              completed={column.position === 2}
+              completed={column.status === "DONE"}
               disabled={busy}
               canDelete={administrator || task.creator.id === userId}
               edit={() => edit(task)}

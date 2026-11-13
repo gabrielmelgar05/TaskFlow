@@ -70,7 +70,7 @@ function FormField({
         )}
       </div>
       {error ? (
-        <p id={`${name}-error`} className="field-error">
+        <p id={`${name}-error`} className="field-error" role="alert">
           {error}
         </p>
       ) : (

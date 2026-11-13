@@ -1,6 +1,6 @@
-# TaskFlow — API (Etapa 05)
+# TaskFlow — API (Etapa 06)
 
-NestJS 12 + TypeScript/ESM + Prisma 7/PrismaPg + PostgreSQL. A Etapa 05 acrescenta tarefas, responsáveis, prazos e ordenação transacional ao Kanban, preservando os módulos existentes e a sessão HTTP-only. A seção **Etapa 05** contém o comportamento e os testes atuais; as seções anteriores documentam as entregas históricas.
+NestJS 12 + TypeScript/ESM + Prisma 7/PrismaPg + PostgreSQL. A Etapa 06 acrescenta dashboard por workspace e um status explícito de coluna, preservando autenticação, permissões e Kanban. A seção **Etapa 06** contém o funcionamento atual e a migração incremental; os resultados das etapas anteriores ficam como histórico.
 
 ## Executar localmente
 
@@ -482,3 +482,150 @@ O único aviso restante do build é o package-lock fora do repositório, no dire
 Referências: [locks de linha no PostgreSQL 17](https://www.postgresql.org/docs/17/explicit-locking.html#LOCKING-ROWS) e [validação NestJS](https://docs.nestjs.com/techniques/validation). A política de ordenação e os limites acima são decisões do TaskFlow, documentadas junto ao código.
 
 Limites desta entrega: não há convites, gestão de membros, notificações, comentários, anexos, WebSockets ou deploy. A consulta de membros serve exclusivamente para escolher responsáveis existentes. Atualizações feitas por outra pessoa aparecem em uma nova consulta, sem sincronização em tempo real.
+
+
+## Etapa 06 — dashboard e qualidade
+
+### Estado explícito das tarefas e migração
+
+Na Etapa 05, as posições 1 e 2 das colunas determinavam Em andamento e Concluído. Não havia um campo de estado. A Etapa 06 adiciona **`BoardColumn.status`**, enum **`ColumnStatus`** com TODO, IN_PROGRESS e DONE. O estado de uma tarefa é o status da coluna à qual ela pertence; não duplicamos a mesma informação no modelo Task.
+
+A migração **`20261113040000_add_column_status`** adiciona somente o enum e o campo. Em uma transação, preenche as colunas anteriores pela regra que já era usada: posição 1 → IN_PROGRESS; posição 2 → DONE; demais → TODO. Esse mapeamento é usado **apenas na migração**. Novos quadros criam as três colunas com status explícito. Depois disso, nome, ordem e posição não classificam a tarefa.
+
+Nenhuma tabela ou migração anterior foi recriada, e nenhum campo anterior de User, Session, Task ou das outras tabelas foi modificado. O padrão TODO atende colunas criadas diretamente sem status; a criação normal de quadros informa os três valores explicitamente. Não foi adicionada gestão de colunas nem novos estados pela interface.
+
+A migração foi primeiro aplicada em um banco isolado com schema anterior, três tarefas e registros relacionados. O teste comparou todos os campos antigos antes/depois e verificou o preenchimento dos status. Depois foi aplicada ao PostgreSQL local do Compose: **contagens e hashes dos campos antigos permaneceram iguais nas sete tabelas**. O `.env` privado não foi alterado. A API precisa ser reiniciada se uma versão anterior ainda estiver rodando.
+
+### Endpoint e contrato
+
+```text
+GET /api/dashboard/summary?workspaceId=IDENTIFICADOR&today=2026-11-13
+```
+
+`workspaceId` e uma data civil real `AAAA-MM-DD` são obrigatórios. `today` vem do dia local do navegador, mantendo a convenção de prazo da Etapa 05. O DTO rejeita valores inválidos, listas e campos extras. O ID do usuário vem exclusivamente da sessão autenticada, nunca da query.
+
+Resposta tipada em `dashboard.types.ts`:
+
+```text
+workspace: id, name, role
+metrics: total, inProgress, completed, overdue
+boards: id, name, totalTasks, completedTasks, progress
+attention: até 5 tarefas com id, title, priority, dueAt, board e reason
+```
+
+Datas são serializadas em ISO; a interface mantém o dia civil, sem convertê-lo para a véspera. O endpoint antigo `/api/tasks/summary` permanece compatível para clientes anteriores, agora também usando o status explícito. O frontend atual não o chama: a Visão geral usa exclusivamente o dashboard do workspace selecionado.
+
+### Cálculos e desempenho
+
+- **Total:** soma das contagens reais das colunas dos quadros do workspace.
+- **Em andamento:** contagens das colunas com status IN_PROGRESS.
+- **Concluídas:** contagens das colunas com status DONE.
+- **Atrasadas:** COUNT no PostgreSQL de tarefas com prazo anterior ao dia informado e status diferente de DONE. Prazo hoje não está vencido; tarefa sem prazo não entra.
+- **Progresso por quadro:** `round(concluídas × 100 / total)`. Se não houver tarefas, retorna `null`; a UI mostra “Sem tarefas”.
+
+Prisma seleciona os quadros e as contagens `_count.tasks` das suas colunas. Não carrega os cartões para contar. O service combina essas contagens no backend e retorna somente os totais úteis. As relações são consultadas em lote; não existe uma chamada de banco dentro do loop de quadros. A lista de quadros está em ordem de criação decrescente, com ID como desempate, sem afirmar que representa atividade recente.
+
+A lista **Precisa de atenção** usa três grupos disjuntos, nesta ordem: atrasadas; prazos de hoje até os próximos sete dias; prioridades HIGH/URGENT sem prazo ou com prazo mais distante. Cada consulta tem `take` limitado às vagas restantes, até cinco no total. As consultas seguintes são dispensadas se a lista já estiver completa. Datas, prioridade, criação e ID dão uma ordem estável. Tarefas DONE nunca entram. Não há busca de todas as tarefas para filtrar no React.
+
+As leituras do resumo ficam em uma transação RepeatableRead: indicadores, quadros e atenção correspondem ao mesmo snapshot. É uma chamada HTTP agregada, composta por consultas Prisma; não é uma afirmação de que tudo é um único comando SQL. Não foram adicionados Redis, filas, cache distribuído ou dependências.
+
+### Segurança e arquivos
+
+O AuthGuard global e a sessão HTTP-only são preservados. O service reutiliza `WorkspacesService.requireMember` e também restringe as consultas ao workspace/usuário. OWNER, ADMIN e MEMBER podem ler o dashboard dos seus workspaces. Recurso inexistente ou inacessível recebe 404; sessão inválida, 401; query inválida, 400; falha Prisma, 503 com mensagem segura. Respostas têm `Cache-Control: no-store` e não incluem e-mail, senhas, sessões ou descrições completas.
+
+```text
+src/dashboard/
+  dashboard.module.ts           # PrismaModule + WorkspacesModule
+  dashboard.controller.ts       # GET, sessão e validação da query
+  dashboard.service.ts          # agregados e tarefas de atenção
+  dashboard.types.ts            # resposta explícita e dados públicos
+  dto/dashboard-query.dto.ts    # workspace + data civil
+prisma/migrations/20261113040000_add_column_status/migration.sql
+test/dashboard.e2e-spec.ts
+test/column-status-migration.mjs
+```
+
+Modificados: `prisma/schema.prisma` acrescenta ColumnStatus; `src/app.module.ts` registra DashboardModule; `boards.service.ts` grava/retorna o status; `tasks.service.ts` substitui posição por status no resumo anterior. As proteções dos testes anteriores aceitam também o banco isolado da Etapa 06. Nenhum módulo existente foi reestruturado.
+
+### Executar e testar a Etapa 06
+
+Na aplicação local, execute em **apps/server**, antes de iniciar uma API com o client novo:
+
+```bash
+npm exec -- prisma generate --config prisma7.config.ts
+npm exec -- prisma migrate deploy --config prisma7.config.ts
+npm run start:dev
+```
+
+O banco local deste checkout já recebeu a migração. Em outro terminal, na raiz, use `npm --prefix apps/web run dev` e abra `http://localhost:3000`. O PostgreSQL continua em `docker compose up -d db`; use Node.js 24 e npm. Não há reset nem necessidade de criar registros demonstrativos no banco da aplicação.
+
+Para a suíte HTTP isolada, crie uma vez na raiz:
+
+```bash
+docker compose exec -T db createdb -U taskflow taskflow_etapa06_test_20261113
+```
+
+Em `apps/server`:
+
+```bash
+export DATABASE_URL='postgresql://taskflow:taskflow_dev_123@localhost:5433/taskflow_etapa06_test_20261113?schema=public'
+npm exec -- prisma migrate deploy --config prisma7.config.ts
+npm exec -- prisma validate --config prisma7.config.ts
+npm run lint
+npm run build
+npm test
+RUN_DATABASE_TESTS=true npm run test:e2e
+```
+
+O teste de migração exige **outro banco novo e vazio**, com prefixo `taskflow_etapa06_migration_test`. Ele prepara as duas migrações anteriores, registra essa baseline com Prisma, cria suas próprias fixtures e aplica a terceira migração. Não o execute no banco da aplicação ou no banco já preenchido da suíte:
+
+```bash
+# Na raiz, uma vez:
+docker compose exec -T db createdb -U taskflow taskflow_etapa06_migration_test_20261113
+# Em apps/server, usando esse banco novo:
+DATABASE_URL='postgresql://taskflow:taskflow_dev_123@localhost:5433/taskflow_etapa06_migration_test_20261113?schema=public' node test/column-status-migration.mjs
+```
+
+Se o banco de migração já tiver tabelas, o roteiro recusa a execução; para repetir, crie outro nome com o mesmo prefixo. Não remova tabelas nem use reset. As suítes limpam somente fixtures próprias; os testes históricos de autenticação preservam suas contas somente no banco separado.
+
+### Resultados da Etapa 06
+
+Validação executada em **13/11/2026**:
+
+| Verificação executada | Resultado real |
+| --- | --- |
+| Lints frontend/backend | Passaram, sem avisos |
+| Builds NestJS e Next.js/Webpack/TypeScript | Passaram |
+| Testes de configuração | 25 passaram |
+| Testes unitários frontend | 27 passaram em 6 arquivos |
+| HTTP + PostgreSQL isolado | 91 passaram: 75 anteriores e 16 novos do dashboard |
+| Migração sobre schema anterior com dados | Passou; campos antigos de sete tabelas e três tarefas preservados |
+| Migração no Compose local | Aplicada; contagens e hashes dos campos anteriores iguais nas sete tabelas |
+| Prisma validate/migrate status | Schema válido; três migrações aplicadas e banco local atualizado |
+| Navegador — dashboard | 12 verificações completas passaram |
+| Navegador — tarefas | 15 verificações completas passaram |
+| Navegador — workspaces/quadros | 13 verificações completas passaram |
+| Exportação estática | `apps/web/out/quadros/detalhes/index.html` e `_routes.json` presentes |
+
+A suíte nova verificou workspace vazio, múltiplos quadros, tarefas sem prazo, datas de hoje/ontem, limite de sete dias, prioridade, limite de cinco itens, progresso, papéis e isolamento entre usuários e entre workspaces do mesmo usuário. Renomear e trocar posições de colunas em fixtures não alterou o resultado: o status explícito permaneceu a fonte da classificação. A falha Prisma no endpoint novo foi injetada para verificar 503 seguro; as leituras e demais integrações usaram PostgreSQL real. Os testes antigos também mantêm seus casos de falha transacional real.
+
+No navegador, alterações no Kanban atualizaram o dashboard ao voltar, sem reiniciar a aplicação. Foram testados carregamento, erro/recuperação, editor por link, teclado, foco e larguras de 320 a 1440 px; as capturas foram inspecionadas. O código da Pages Function foi usado em um adaptador HTTP local, sem repetir workerd ou fazer deploy.
+
+A regressão identificou uma espera insuficiente no roteiro de exclusão de workspace: a opção de outro workspace já existia antes de a requisição terminar. O teste agora aguarda o diálogo fechar após a resposta, antes de conferir a cascata no banco. Um preview temporário encerrado durante a primeira tentativa foi reiniciado; a execução final passou. Nenhum problema de persistência permaneceu.
+
+Nenhuma biblioteca foi instalada. O build mantém apenas o aviso ambiental sobre um package-lock no diretório pessoal fora do repositório. Os servidores temporários foram encerrados. Não houve reset, perda de dados, git add, commit, push, merge, criação de branch ou deploy.
+
+### Explicação para entrevistas — dashboard
+
+1. **Como chega ao PostgreSQL:** o React solicita o resumo do workspace pela API. O controller valida a query e o service consulta pelo PrismaService. O PostgreSQL devolve contagens e até cinco tarefas de atenção; a API monta a resposta pública.
+2. **Agregação:** calcular um resumo sobre várias linhas, como COUNT. O TaskFlow conta as tarefas de cada coluna no banco, em vez de mandar todos os cartões ao navegador para somá-los.
+3. **Por que no backend:** a regra de status e a autorização ficam centralizadas, o payload é menor e qualquer cliente usa o mesmo resultado. A UI apresenta os números, sem inventar estatísticas.
+4. **Isolamento:** a API usa o ID da sessão e exige WorkspaceMember para o workspace solicitado. Mudar `workspaceId` para um espaço alheio retorna 404 e não revela indicadores.
+5. **Atualização no React:** `useApiResource` carrega o resumo ao visitar a página, cancela consultas anteriores ao trocar de workspace e aplica a resposta em estado. Reabrir a Visão geral depois de editar no Kanban busca os dados atuais; receber foco também permite atualizar o resumo.
+6. **Loading, erro e vazio:** carregamento usa um estado de espera, falha oferece nova tentativa sem números falsos e ausência de dados mostra ações úteis. Zero só aparece quando a API confirma zero. Um 503 não é tratado como sessão expirada.
+7. **Responsividade:** Tailwind mantém utilitários como `sm:inline-block`, alinhamento e espaçamento; as grades e breakpoints compartilhados de `globals.css` seguem o padrão existente. Os quatro indicadores viram duas colunas e as seções se empilham. O Kanban conserva a rolagem horizontal interna.
+8. **Organização:** controller para HTTP, DTO para entrada, service para regras e PrismaService para banco. No frontend, a tela coordena dados e componentes pequenos exibem indicadores, atenção e quadros. O seletor e o editor são reutilizados; não há outra biblioteca de estado.
+
+Referências: [validação NestJS](https://docs.nestjs.com/techniques/validation) e [ALTER TABLE no PostgreSQL 17](https://www.postgresql.org/docs/17/ddl-alter.html). O client do projeto continua sendo Prisma 7; não foi atualizado para a API de versões posteriores apresentada em parte da documentação atual.
+
+Limitações: sem sincronização em tempo real; a lista de atenção é limitada a cinco e os quadros não têm paginação nesta etapa. Não foram iniciados testes finais gerais da Etapa 07, integrações externas ou deploy da Etapa 08.

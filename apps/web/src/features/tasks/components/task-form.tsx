@@ -87,7 +87,10 @@ export function TaskForm({
           ? error.message
           : "Não foi possível salvar a tarefa.",
       );
-      if (error instanceof ApiError) setErrors(error.fields);
+      if (error instanceof ApiError) {
+        setErrors(error.fields);
+        requestAnimationFrame(() => focusError(error.fields));
+      }
     } finally {
       sending.current = false;
       setBusy(false);

@@ -30,7 +30,7 @@ export function ConnectionNotice() {
       <p className="min-w-0 flex-1 basis-56">
         {status === "checking"
           ? "Verificando a conexão…"
-          : "Não foi possível conectar ao serviço. Você pode continuar explorando seu espaço."}
+          : "Não foi possível conectar ao serviço. Seus dados podem estar desatualizados; tente novamente em instantes."}
       </p>
       <Button
         disabled={status === "checking"}

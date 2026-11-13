@@ -1,60 +1,37 @@
-"use client";
 import Link from "next/link";
-import { ButtonLink } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { useApiResource } from "@/hooks/use-api-resource";
-import { useWorkspaces } from "@/features/workspaces/workspaces-provider";
-import { ResourceError, ResourceLoading } from "./resource-state";
-import { boardHref, type Board } from "./types";
-
-export function BoardsSummary() {
-  const workspaces = useWorkspaces();
-  const workspace = workspaces.selected;
-  const boards = useApiResource<Board[]>(
-    workspace ? `/workspaces/${workspace.id}/boards` : null,
-  );
-  if (workspaces.loading || boards.loading) return <ResourceLoading />;
-  if (workspaces.error || boards.error)
-    return (
-      <ResourceError
-        message={workspaces.error ?? boards.error!}
-        retry={() => {
-          workspaces.reload();
-          boards.reload();
-        }}
-      />
-    );
-  if (!boards.data?.length)
-    return (
-      <EmptyState
-        title="Tudo começa com uma ideia"
-        description="Crie um workspace e reúna seus projetos em quadros."
-      >
-        <ButtonLink href="/quadros/" variant="secondary">
-          Abrir Quadros
-        </ButtonLink>
-      </EmptyState>
-    );
+import type { DashboardBoard } from "@/features/dashboard/types";
+import { boardHref } from "./types";
+export function BoardsSummary({ boards }: { boards: DashboardBoard[] }) {
   return (
-    <div className="p-6">
-      <p className="mb-4 text-sm text-muted">
-        {boards.data.length}{" "}
-        {boards.data.length === 1 ? "quadro em" : "quadros em"}{" "}
-        <span className="font-medium text-ink">{workspace?.name}</span>
-      </p>
-      <ul className="recent-boards">
-        {boards.data
-          .slice(-3)
-          .reverse()
-          .map((board) => (
-            <li key={board.id}>
-              <Link href={boardHref(board.id)}>
-                {board.name}
-                <span aria-hidden="true">↗</span>
-              </Link>
-            </li>
-          ))}
-      </ul>
-    </div>
+    <ul className="dashboard-boards">
+      {boards.map((board) => (
+        <li key={board.id}>
+          <Link href={boardHref(board.id)} className="dashboard-board-link">
+            <span className="resource-name">{board.name}</span>
+            <span aria-hidden="true">↗</span>
+          </Link>
+          <div className="dashboard-board-meta">
+            <span>
+              {board.totalTasks} {board.totalTasks === 1 ? "tarefa" : "tarefas"}
+            </span>
+            <span>
+              {board.progress === null
+                ? "Sem tarefas"
+                : `${board.completedTasks} ${board.completedTasks === 1 ? "concluída" : "concluídas"}`}
+            </span>
+          </div>
+          {board.progress !== null && (
+            <div className="board-progress">
+              <progress
+                max={100}
+                value={board.progress}
+                aria-label={`Progresso de ${board.name}`}
+              />
+              <span>{board.progress}%</span>
+            </div>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }

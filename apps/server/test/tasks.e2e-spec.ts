@@ -92,11 +92,11 @@ describe.skipIf(process.env.RUN_DATABASE_TESTS !== 'true')(
     }
     beforeAll(async () => {
       if (
-        !/^taskflow_etapa0[45]_test/.test(
+        !/^taskflow_etapa0[456]_test/.test(
           new URL(process.env.DATABASE_URL ?? '').pathname.slice(1),
         )
       )
-        throw new Error('Use um banco isolado taskflow_etapa05_test*.');
+        throw new Error('Use um banco isolado taskflow_etapa05_test* ou taskflow_etapa06_test*.');
       const module = await Test.createTestingModule({
         imports: [AppModule],
       }).compile();

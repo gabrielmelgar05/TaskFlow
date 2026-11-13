@@ -12,9 +12,9 @@ const { chromium } = await import(
   process.env.PLAYWRIGHT_MODULE ?? "playwright"
 );
 const databaseUrl = process.env.DATABASE_URL ?? "";
-if (!/^taskflow_etapa0[45]_test/.test(new URL(databaseUrl).pathname.slice(1)))
+if (!/^taskflow_etapa0[456]_test/.test(new URL(databaseUrl).pathname.slice(1)))
   throw new Error(
-    "Use somente um banco isolado taskflow_etapa04_test* ou taskflow_etapa05_test*.",
+    "Use somente um banco isolado taskflow_etapa04_test*, taskflow_etapa05_test* ou taskflow_etapa06_test*.",
   );
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: databaseUrl }),
@@ -256,7 +256,7 @@ try {
     data: { role: "MEMBER" },
   });
   await page.reload();
-  await visible(page.getByText("Somente leitura", { exact: true }));
+  await visible(page.getByText("Membro", { exact: true }));
   await absent(page.getByRole("button", { name: "Criar quadro", exact: true }));
   await absent(page.getByLabel(/^Gerenciar workspace /));
   const forbidden = await context.request.post(
@@ -317,6 +317,7 @@ try {
     .getByRole("dialog")
     .getByRole("button", { name: "Excluir workspace", exact: true })
     .click();
+  await page.getByRole("dialog").waitFor({ state: "detached" });
   await page
     .getByRole("option", { name: "Segundo workspace" })
     .waitFor({ state: "attached" });
@@ -368,6 +369,19 @@ try {
   assert.ok(selection);
   assert.deepEqual(errors, []);
   report("nenhum erro JavaScript no navegador");
+} catch (error) {
+  await mkdir("/tmp/taskflow-etapa04", { recursive: true });
+  console.error("URL no momento da falha:", page.url());
+  console.error(
+    await page
+      .locator("#conteudo")
+      .innerText()
+      .catch(() => "Conteúdo privado indisponível."),
+  );
+  await page
+    .screenshot({ path: "/tmp/taskflow-etapa04/failure.png", fullPage: true })
+    .catch(() => {});
+  throw error;
 } finally {
   // Limpa somente a conta e os workspaces que este roteiro criou.
   const user = await prisma.user.findUnique({ where: { email } });

@@ -60,9 +60,9 @@ describe.skipIf(process.env.RUN_DATABASE_TESTS !== 'true')(
       const database = new URL(process.env.DATABASE_URL ?? '').pathname.slice(
         1,
       );
-      if (!/^taskflow_etapa0[45]_test/.test(database))
+      if (!/^taskflow_etapa0[456]_test/.test(database))
         throw new Error(
-          'Use um DATABASE_URL de teste isolado: taskflow_etapa04_test* ou taskflow_etapa05_test*.',
+          'Use um DATABASE_URL de teste isolado: taskflow_etapa04_test*, taskflow_etapa05_test* ou taskflow_etapa06_test*.',
         );
       app = await newApp();
       prisma = app.get(PrismaService);

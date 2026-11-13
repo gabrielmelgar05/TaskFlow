@@ -69,7 +69,7 @@ export function ResourceDialog({
       );
       if (error instanceof ApiError && error.fields.name) {
         setFieldError(error.fields.name);
-        input.current?.focus();
+        requestAnimationFrame(() => input.current?.focus());
       }
     } finally {
       sending.current = false;

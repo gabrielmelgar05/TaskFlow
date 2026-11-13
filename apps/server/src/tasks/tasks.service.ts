@@ -272,10 +272,10 @@ export class TasksService {
         [
           this.prisma.task.count({ where }),
           this.prisma.task.count({
-            where: { AND: [where, { column: { position: 1 } }] },
+            where: { AND: [where, { column: { status: 'IN_PROGRESS' } }] },
           }),
           this.prisma.task.count({
-            where: { AND: [where, { column: { position: 2 } }] },
+            where: { AND: [where, { column: { status: 'DONE' } }] },
           }),
           this.prisma.task.count({
             where: {
@@ -283,7 +283,7 @@ export class TasksService {
                 where,
                 {
                   dueAt: { lt: new Date(`${today}T00:00:00.000Z`) },
-                  column: { position: { not: 2 } },
+                  column: { status: { not: 'DONE' } },
                 },
               ],
             },

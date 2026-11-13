@@ -41,9 +41,9 @@ export class BoardsService {
         },
         columns: {
           create: [
-            { name: 'A fazer', position: 0 },
-            { name: 'Em andamento', position: 1 },
-            { name: 'Concluído', position: 2 },
+            { name: 'A fazer', position: 0, status: 'TODO' },
+            { name: 'Em andamento', position: 1, status: 'IN_PROGRESS' },
+            { name: 'Concluído', position: 2, status: 'DONE' },
           ],
         },
       },
@@ -57,7 +57,7 @@ export class BoardsService {
       select: {
         ...boardSelect,
         columns: {
-          select: { id: true, name: true, position: true },
+          select: { id: true, name: true, position: true, status: true },
           orderBy: [{ position: 'asc' }, { id: 'asc' }],
         },
       },

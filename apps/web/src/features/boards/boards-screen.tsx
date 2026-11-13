@@ -14,6 +14,7 @@ import {
 import { ResourceDialog, type ResourceAction } from "./resource-dialog";
 import { ResourceLoading, ResourceError } from "./resource-state";
 import { boardHref, type Board } from "./types";
+import { WorkspaceToolbar } from "@/features/workspaces/workspace-toolbar";
 
 export function BoardsScreen() {
   const workspaces = useWorkspaces();
@@ -85,68 +86,10 @@ export function BoardsScreen() {
         </SectionCard>
       ) : (
         <>
-          <div className="workspace-toolbar">
-            <div className="workspace-selector">
-              <label htmlFor="workspace-selection">Workspace atual</label>
-              <select
-                id="workspace-selection"
-                value={workspace.id}
-                onChange={(event) => {
-                  workspaces.select(event.target.value);
-                  setNotice("");
-                }}
-              >
-                {workspaces.workspaces.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <span className="workspace-role">
-              {workspace.role === "OWNER"
-                ? "Proprietário"
-                : workspace.role === "ADMIN"
-                  ? "Administrador"
-                  : "Somente leitura"}
-            </span>
-            <div className="workspace-tools">
-              <Button variant="secondary" onClick={createWorkspace}>
-                Criar workspace
-              </Button>
-              {manageable && (
-                <ActionMenu label={`Gerenciar workspace ${workspace.name}`}>
-                  <button
-                    onClick={() =>
-                      setAction({
-                        kind: "workspace",
-                        operation: "rename",
-                        path: `/workspaces/${workspace.id}`,
-                        name: workspace.name,
-                      })
-                    }
-                  >
-                    Renomear workspace
-                  </button>
-                  {workspace.role === "OWNER" && (
-                    <button
-                      className="danger-text"
-                      onClick={() =>
-                        setAction({
-                          kind: "workspace",
-                          operation: "delete",
-                          path: `/workspaces/${workspace.id}`,
-                          name: workspace.name,
-                        })
-                      }
-                    >
-                      Excluir workspace
-                    </button>
-                  )}
-                </ActionMenu>
-              )}
-            </div>
-          </div>
+          <WorkspaceToolbar
+            onAction={setAction}
+            onSelect={() => setNotice("")}
+          />
           <SectionCard
             title="Meus quadros"
             description={`Projetos de ${workspace.name}`}

@@ -1,5 +1,11 @@
 "use client";
-import { createContext, useContext, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+  type ReactNode,
+} from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useApiResource } from "@/hooks/use-api-resource";
 
@@ -31,15 +37,18 @@ function useWorkspaceState() {
   const selected =
     workspaces.find((workspace) => workspace.id === selectedId) ??
     workspaces[0];
-  function select(id: string) {
-    setSelectedId(id);
-    // Apenas uma preferência de seleção. Os registros sempre vêm da API.
-    try {
-      sessionStorage.setItem(storageKey, id);
-    } catch {
-      /* armazenamento opcional */
-    }
-  }
+  const select = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      // Apenas uma preferência de seleção. Os registros sempre vêm da API.
+      try {
+        sessionStorage.setItem(storageKey, id);
+      } catch {
+        /* armazenamento opcional */
+      }
+    },
+    [storageKey],
+  );
   return { ...resource, workspaces, selected, select };
 }
 const WorkspacesContext = createContext<ReturnType<

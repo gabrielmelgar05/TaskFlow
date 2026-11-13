@@ -6,6 +6,7 @@ import { Icon } from "@/components/ui/icon";
 import { ConnectionNotice } from "./connection-notice";
 import { ProfileMenu } from "./profile-menu";
 import { Brand } from "@/components/ui/brand";
+import { useWorkspaces } from "@/features/workspaces/workspaces-provider";
 
 const navigation = [
   { href: "/", label: "Visão geral", icon: "overview" },
@@ -14,6 +15,8 @@ const navigation = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { selected } = useWorkspaces();
+  const workspaceName = selected?.name ?? "Seus projetos";
   const currentPage = pathname.startsWith("/quadros")
     ? "Quadros"
     : "Visão geral";
@@ -26,8 +29,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Brand />
         <div className="sidebar-workspace">
           <span className="workspace-monogram">tf</span>
-          <div>
-            <span>Meu workspace</span>
+          <div className="min-w-0">
+            <span className="truncate" title={workspaceName}>
+              {workspaceName}
+            </span>
             <small>Um lugar para suas ideias</small>
           </div>
         </div>
@@ -86,9 +91,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
       <div className="workspace-main">
         <header className="topbar">
-          <div className="flex items-center gap-2.5 text-xs text-muted">
+          <div className="flex min-w-0 items-center gap-2.5 text-xs text-muted">
             <Icon name="home" width="15" height="15" />
-            <span className="hidden sm:inline">Meu workspace</span>
+            <span
+              className="hidden max-w-48 truncate sm:inline-block"
+              title={workspaceName}
+            >
+              {workspaceName}
+            </span>
             <Icon name="chevron" width="12" height="12" />
             <span className="text-ink">{currentPage}</span>
           </div>
