@@ -61,3 +61,58 @@ describe('Configuração do ambiente', () => {
     ).toThrow(/CORS_ORIGIN/);
   });
 });
+
+describe('Configuração segura das sessões', () => {
+  it('define cookies locais e sessão de sete dias', () => {
+    expect(validateEnvironment({ DATABASE_URL: databaseUrl })).toMatchObject({
+      COOKIE_SECURE: false,
+      SESSION_TTL_DAYS: 7,
+    });
+  });
+  it.each(['0', '31', 'abc', '1.5'])('rejeita prazo inválido %s', (days) => {
+    expect(() =>
+      validateEnvironment({
+        DATABASE_URL: databaseUrl,
+        SESSION_TTL_DAYS: days,
+      }),
+    ).toThrow(/SESSION_TTL_DAYS/);
+  });
+  it('exige segredo de proxy em produção', () => {
+    expect(() =>
+      validateEnvironment({
+        DATABASE_URL: databaseUrl,
+        NODE_ENV: 'production',
+        CORS_ORIGIN: 'https://taskflow.pages.dev',
+      }),
+    ).toThrow(/API_PROXY_SECRET/);
+  });
+  it('não permite desativar Secure em produção', () => {
+    expect(() =>
+      validateEnvironment({
+        DATABASE_URL: databaseUrl,
+        NODE_ENV: 'production',
+        COOKIE_SECURE: 'false',
+      }),
+    ).toThrow(/COOKIE_SECURE/);
+  });
+  it('aceita produção com HTTPS, segredo e cookies seguros', () => {
+    expect(
+      validateEnvironment({
+        DATABASE_URL: databaseUrl,
+        NODE_ENV: 'production',
+        CORS_ORIGIN: 'https://taskflow.pages.dev',
+        API_PROXY_SECRET: 'x'.repeat(32),
+      }),
+    ).toMatchObject({ COOKIE_SECURE: true });
+  });
+  it('rejeita origem HTTP em produção', () => {
+    expect(() =>
+      validateEnvironment({
+        DATABASE_URL: databaseUrl,
+        NODE_ENV: 'production',
+        CORS_ORIGIN: 'http://example.com',
+        API_PROXY_SECRET: 'x'.repeat(32),
+      }),
+    ).toThrow(/HTTPS/);
+  });
+});

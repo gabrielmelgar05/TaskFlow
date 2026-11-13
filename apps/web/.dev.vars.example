@@ -1,0 +1,4 @@
+# Ambiente exclusivo da Pages Function. Não é exposto no JavaScript do navegador.
+API_ORIGIN=http://localhost:3001
+# Se configurar um segredo aqui, configure o MESMO valor no backend.
+# API_PROXY_SECRET=

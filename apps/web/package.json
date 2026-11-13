@@ -2,10 +2,13 @@
   "name": "web",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --test test/*.test.mjs",
+    "preview:pages": "wrangler pages dev"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
@@ -24,6 +27,7 @@
     "eslint-config-next": "16.4.6",
     "postcss": "^8.5.32",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.159.0"
   }
 }
