@@ -5,6 +5,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { useApiResource } from "@/hooks/use-api-resource";
 import { ResourceError, ResourceLoading } from "./resource-state";
 import type { BoardDetail } from "./types";
+import { TaskBoard } from "@/features/tasks/components/task-board";
 
 export function BoardScreen() {
   const id = useSearchParams().get("id");
@@ -41,23 +42,7 @@ export function BoardScreen() {
                 <p>Um passo de cada vez, do começo à conclusão.</p>
               </div>
             </div>
-            <div className="kanban-grid" aria-label="Colunas do quadro">
-              {board.columns.map((column) => (
-                <section
-                  key={column.id}
-                  className="kanban-column"
-                  aria-labelledby={`column-${column.id}`}
-                >
-                  <div className="kanban-column-heading">
-                    <span className="column-dot" aria-hidden="true" />
-                    <h2 id={`column-${column.id}`}>{column.name}</h2>
-                  </div>
-                  <div className="kanban-empty">
-                    <p>Nenhuma tarefa</p>
-                  </div>
-                </section>
-              ))}
-            </div>
+            <TaskBoard key={board.id} board={board} />
           </>
         )
       )}

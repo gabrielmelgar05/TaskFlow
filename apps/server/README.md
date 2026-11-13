@@ -1,6 +1,6 @@
-# TaskFlow — API (Etapa 04)
+# TaskFlow — API (Etapa 05)
 
-NestJS 12 + TypeScript/ESM + Prisma 7/PrismaPg + PostgreSQL. A Etapa 04 acrescenta CRUD de workspaces e quadros Kanban com autorização por associação, preservando saúde, autenticação, sessões, CSRF e rate limiting. Não inclui CRUD de tarefas, convites ou drag-and-drop. A seção **Etapa 04** abaixo descreve os novos módulos e a validação atual; os resultados anteriores estão identificados como históricos.
+NestJS 12 + TypeScript/ESM + Prisma 7/PrismaPg + PostgreSQL. A Etapa 05 acrescenta tarefas, responsáveis, prazos e ordenação transacional ao Kanban, preservando os módulos existentes e a sessão HTTP-only. A seção **Etapa 05** contém o comportamento e os testes atuais; as seções anteriores documentam as entregas históricas.
 
 ## Executar localmente
 
@@ -326,4 +326,159 @@ O banco original da aplicação não foi migrado nem limpo nesta validação. N�
 
 Referências da implementação: [validação NestJS](https://docs.nestjs.com/techniques/validation) e [Prisma 7: nested writes](https://www.prisma.io/docs/orm/prisma-client/queries/relation-queries#nested-writes). A documentação atual do Prisma pode apresentar APIs de versões posteriores; este projeto mantém o Prisma 7 instalado.
 
-Próxima etapa: CRUD de tarefas e, quando previsto, interação de movimentação. Nenhuma dessas funcionalidades foi antecipada. Convites, gestão de membros e compartilhamento também permanecem fora desta entrega.
+Na entrega da Etapa 04, tarefas e movimentação ficaram pendentes. Elas são implementadas na Etapa 05 abaixo. Convites e gestão de membros continuam fora do escopo.
+
+
+## Etapa 05 — gerenciamento de tarefas
+
+### Módulo, arquivos e responsabilidades
+
+```text
+src/tasks/
+  tasks.module.ts          # registra PrismaService, controller e service
+  tasks.controller.ts      # rotas, DTOs, sessão e Cache-Control: no-store
+  tasks.service.ts         # autorização, responsáveis e transações de ordenação
+  dto/
+    create-task.dto.ts     # título e coluna obrigatórios
+    update-task.dto.ts     # altera apenas informações da tarefa
+    move-task.dto.ts       # destino e posição inteira
+    task-fields.dto.ts     # descrição, prioridade, prazo e responsável
+    task-summary.dto.ts    # data civil usada nas contagens de atraso
+```
+
+Modificados: `src/app.module.ts` registra TasksModule; `workspaces.controller.ts` e `workspaces.service.ts` acrescentam somente a consulta de membros para o seletor de responsáveis. `test/tasks.e2e-spec.ts` testa a API com PostgreSQL real. `vitest.config.e2e.ts` executa arquivos em sequência porque os testes de rollback usam triggers temporários; a concorrência das requisições continua sendo testada dentro da suíte. A proteção do teste da Etapa 04 passou a aceitar também o prefixo de banco isolado da Etapa 05. Não há dependência nova no backend.
+
+### Endpoints
+
+Todas as rotas abaixo exigem sessão. Escritas também passam pelo OriginGuard/CSRF existente. O AuthGuard e o rate limiting de autenticação não foram substituídos.
+
+| Método | Endpoint | Entrada e resposta |
+| --- | --- | --- |
+| GET | `/api/boards/:boardId/tasks` | Lista plana das tarefas autorizadas do quadro |
+| POST | `/api/boards/:boardId/tasks` | Cria no final da coluna; responde 201 com a tarefa |
+| GET | `/api/tasks/:id` | Detalhes da tarefa |
+| PATCH | `/api/tasks/:id` | Atualiza informações; responde com a tarefa |
+| DELETE | `/api/tasks/:id` | Exclui e compacta a coluna; responde 204 |
+| PATCH | `/api/tasks/:id/move` | Recebe `{ columnId, position }`; devolve todas as tarefas do quadro na ordem confirmada |
+| GET | `/api/workspaces/:id/members` | Somente `{ id, name }` dos membros; não altera associações |
+| GET | `/api/tasks/summary?today=2026-11-13` | Contagens de tarefas acessíveis no dia civil informado |
+
+Exemplo de criação, sem `creatorId`:
+
+```json
+{
+  "title": "Preparar apresentação do TaskFlow",
+  "description": "Explicar a autenticação e demonstrar o Kanban.",
+  "priority": "HIGH",
+  "dueAt": "2026-11-20",
+  "assigneeId": null,
+  "columnId": "ID_DA_COLUNA"
+}
+```
+
+O título é obrigatório, de 1 a 200 caracteres, em uma linha. A descrição é texto simples opcional com até 5000 caracteres e pode ter parágrafos. A prioridade aceita LOW, MEDIUM, HIGH e URGENT; omitida na criação, usa MEDIUM. O prazo aceita exclusivamente uma data real `AAAA-MM-DD`. `assigneeId` é opcional e precisa pertencer ao workspace do quadro. `description`, `dueAt` e `assigneeId` podem receber `null` para limpar o campo na edição. Título e prioridade não aceitam `null`. Uma edição sem campos é rejeitada.
+
+`columnId`, `position`, `creatorId` e outros campos extras são rejeitados no PATCH de edição. Coluna/posição são alteradas apenas por `/move`. O criador vem exclusivamente da sessão. A listagem seleciona somente id, título, descrição, prioridade, prazo, coluna, posição, datas e `{ id, name }` de criador/responsável. Não retorna e-mail, senha, hashes ou sessões. A ordem usa coluna, posição, criação e ID como desempate.
+
+### Permissões e isolamento
+
+| Operação em tarefas | OWNER | ADMIN | MEMBER |
+| --- | --- | --- | --- |
+| Criar, consultar, editar e mover | Sim | Sim | Sim |
+| Excluir qualquer tarefa do workspace | Sim | Sim | Não |
+| Excluir tarefa que criou | Sim | Sim | Sim |
+
+As permissões administrativas de workspaces/quadros da Etapa 04 continuam iguais. Ser MEMBER agora permite trabalhar nos cartões, sem administrar o quadro. A API confirma a associação ao workspace tanto na busca quanto dentro da transação de escrita. Coluna de outro quadro, mesmo no mesmo workspace, é rejeitada. Responsável de outro workspace é rejeitado. Conhecer um ID não dá acesso.
+
+Erros: **400** para DTO inválido, responsável/coluna inválidos e posição fora dos limites; **401** para sessão inválida; **403** para exclusão de tarefa alheia por MEMBER ou Origin inválido; **404** para recurso inexistente ou inacessível; **503** para falha Prisma, preservando o filtro seguro existente. A UI ocultar uma ação não substitui essa autorização.
+
+### Persistência, ordenação e concorrência
+
+O modelo Task e todas as relações/índices existentes foram reutilizados. Não houve alteração de schema, tabela ou migração. `Task.columnId` referencia BoardColumn; `creatorId` e `assigneeId` referenciam User. A política de cascata existente continua válida ao excluir quadros/workspaces.
+
+As posições de uma coluna são inteiros consecutivos a partir de zero. Exemplo: A(0), B(1), C(2). Mover C para posição 0 resulta em C(0), A(1), B(2). Mover A para outra coluna remove A da origem, compacta a origem e insere A no índice validado do destino. Excluir B também compacta a coluna. Na criação, a posição é o tamanho atual da coluna, após normalização de eventuais lacunas.
+
+Cada escrita executa uma transação Prisma curta. Antes de ler/alterar posições, ela obtém um **lock na linha do Board** com `SELECT ... FOR UPDATE OF b`. O SQL é parametrizado por Prisma, incluindo o usuário autenticado; não há interpolação de texto SQL arbitrário. As demais consultas são feitas pelo Prisma tipado. Todos os registros afetados são salvos na mesma transação; se uma atualização falhar, nenhuma posição parcial é confirmada. Apenas registros cuja posição/coluna muda precisam ser atualizados.
+
+Duas escritas no mesmo quadro aguardam o mesmo lock, inclusive em processos diferentes da API. A segunda calcula a ordem a partir do estado já confirmado pela primeira. Quadros distintos continuam independentes. O resultado final segue a ordem de obtenção do lock; a última movimentação confirmada define o destino final daquele cartão. Não há garantia de colaboração em tempo real nem controle por versão. Uma posição que ficou inválida após outra operação recebe 400, permitindo atualizar e tentar novamente. Repetir o mesmo movimento absoluto não cria outra tarefa e mantém o destino consistente.
+
+O timeout limita a espera/transação; uma falha devolve erro seguro e rollback. Isso evita introduzir Redis, WebSockets, filas ou outra infraestrutura nesta etapa. Para um portfólio com quadros pequenos, reindexar apenas as colunas afetadas é simples de estudar. Grandes quadros poderão exigir paginação e uma estratégia de posições mais espaçadas em evolução futura.
+
+### Datas e indicadores reais
+
+O formulário envia a data civil, por exemplo `2026-11-20`. A API grava `2026-11-20T00:00:00.000Z` no campo DateTime existente. A interface lê o dia UTC para mostrar o mesmo dia escolhido, sem conversão involuntária para a véspera. O prazo representa um **dia**, sem horário exato de entrega.
+
+Atraso significa prazo anterior ao dia local atual e tarefa fora de Concluído. O frontend envia seu dia local em `today` para que o resumo use a mesma regra, mesmo que o servidor esteja em outro fuso. As contagens incluem somente tarefas de workspaces acessíveis. `summary` executa quatro COUNTs no PostgreSQL em uma transação de leitura RepeatableRead, sem transferir todos os cartões ao React. Em andamento e Concluído correspondem às posições 1 e 2 das três colunas fixas existentes.
+
+### Executar e testar
+
+Os comandos locais anteriores permanecem válidos: PostgreSQL via `docker compose up -d db`, API via `npm --prefix apps/server run start:dev`, frontend via `npm --prefix apps/web run dev`. Use Node.js 24 e npm. Nenhuma nova migração precisa ser aplicada ao banco da aplicação.
+
+Para testes isolados, crie uma vez na raiz:
+
+```bash
+docker compose exec -T db createdb -U taskflow taskflow_etapa05_test_20261113
+```
+
+Em `apps/server`, sem editar o `.env` privado:
+
+```bash
+export DATABASE_URL='postgresql://taskflow:taskflow_dev_123@localhost:5433/taskflow_etapa05_test_20261113?schema=public'
+npm exec -- prisma generate --config prisma7.config.ts
+npm exec -- prisma validate --config prisma7.config.ts
+npm exec -- prisma migrate deploy --config prisma7.config.ts
+npm exec -- prisma migrate status --config prisma7.config.ts
+npm run lint
+npm run build
+npm test
+RUN_DATABASE_TESTS=true npm run test:e2e
+```
+
+O banco isolado recebe apenas as duas migrações existentes. A nova suíte cria cinco usuários, workspaces e quadros próprios, testa concorrência com requisições reais e limpa somente seus registros. O teste de falha instala um trigger temporário que rejeita a troca de coluna depois de outras posições já terem sido atualizadas, confirma o rollback integral e remove o trigger. Nunca execute esses testes no banco real da aplicação. Os testes históricos de autenticação mantêm suas contas de teste somente no banco isolado. Sem `RUN_DATABASE_TESTS=true`, os testes de banco são explicitamente ignorados.
+
+### Resultados da Etapa 05
+
+Validação executada em **13/11/2026**, usando PostgreSQL separado `taskflow_etapa05_test_20261113`:
+
+| Verificação | Resultado real |
+| --- | --- |
+| Lint backend e frontend | Passaram, sem avisos |
+| Build NestJS | Passou |
+| Build estático Next.js/Webpack + TypeScript | Passou; `out/quadros/detalhes/index.html` e `_routes.json` presentes |
+| Testes unitários de configuração | 25 passaram |
+| Testes unitários frontend | 26 passaram em 5 arquivos |
+| HTTP + PostgreSQL | 75 passaram: 45 anteriores + 30 da suíte de tarefas |
+| Concorrência | 12 criações paralelas, 8 movimentos paralelos e 6 movimentos duplicados preservaram IDs e posições consecutivas |
+| Rollback real | Trigger PostgreSQL provocou erro após reindexar a origem; todas as alterações e timestamps foram revertidos |
+| Schema Prisma | Válido, sem alteração |
+| Migrate deploy/status no banco isolado | Duas migrações existentes aplicadas; banco atualizado |
+| Navegador — tarefas | 15 verificações completas passaram |
+| Navegador — regressão Etapa 04 | 13 verificações completas passaram |
+| Responsividade e console | Sem overflow da página entre 320 e 1440 px e sem erros JavaScript; capturas inspecionadas |
+
+Os testes HTTP cobrem criação/validação/atribuição, edição e limpeza dos opcionais, permissões de todos os papéis, IDOR, CSRF, exclusão, movimentos, coluna vazia, persistência, resumo e as proteções anteriores. O roteiro de tarefas percorreu cadastro/login/logout reais, formulários, arrasto com mouse e teclado, cancelamento, alternativa por touch, falha com rollback, recarga e contagens. Respostas HTTP de falha foram injetadas no navegador para verificar os estados da UI; o rollback transacional foi testado com falha real no PostgreSQL.
+
+Problema encontrado e corrigido: uma edição `{}` era aceita porque o DTO materializa campos opcionais com valor `undefined`. O service agora exige ao menos um valor definido. A integração do hook de drag-and-drop usa desestruturação explícita dos callbacks de ref para compatibilidade com a regra de lint React. Na falha de movimentação, além do snapshot, uma leitura curta reconcilia o estado caso a resposta se perca após o commit.
+
+O único aviso restante do build é o package-lock fora do repositório, no diretório pessoal, já existente no ambiente. O npm install manteve os 7 alertas moderados de ferramentas já registrados no frontend; não foi aplicado audit fix fora do escopo. Nenhum dado do banco da aplicação foi removido, nenhuma migração antiga foi modificada e não houve reset, deploy ou operação Git de escrita. Os servidores temporários de teste foram encerrados ao concluir.
+
+### Explicação para entrevistas — tarefas
+
+1. **Tarefa no banco:** uma linha da tabela Task com identidade, conteúdo e relações. “Preparar entrevista” guarda título, prioridade e a coluna atual; não depende de uma aba do navegador aberta.
+2. **TaskService:** no projeto se chama `TasksService`. Ele valida acesso e regras, verifica o responsável e organiza as transações; o controller apenas recebe a requisição e chama o método adequado.
+3. **Chave estrangeira:** referência a uma linha de outra tabela. `Task.columnId` precisa apontar para uma coluna existente; o PostgreSQL impede uma tarefa ligada a uma coluna inexistente.
+4. **Prisma e colunas:** `Task.column` e `BoardColumn.tasks` descrevem os dois lados da relação. A API pode seguir tarefa → coluna → quadro → workspace para verificar a associação do usuário.
+5. **CRUD:** criar pelo POST, consultar pelo GET, editar pelo PATCH e excluir pelo DELETE. Mover usa outro PATCH com regras específicas de ordenação.
+6. **React após salvar:** recebe a tarefa retornada pela API e atualiza a lista em memória. Na recarga, busca novamente o PostgreSQL. A memória mostra o resultado; não é o banco.
+7. **Drag-and-drop:** arrastar e soltar um cartão sobre outra posição. dnd-kit detecta o gesto; TaskFlow transforma o destino em `columnId` e índice e só envia a requisição ao soltar.
+8. **Mudar de coluna:** a API verifica se o destino pertence ao mesmo quadro, altera `columnId` e reorganiza as duas listas dentro de uma transação.
+9. **Salvar posição:** só guardar a coluna não informa a ordem. `position` permite que “Escrever testes” continue acima de “Preparar apresentação” após fechar ou atualizar a página.
+10. **Transação:** agrupa alterações para confirmar tudo de uma vez. Mover uma tarefa e ajustar suas vizinhas é uma única operação de negócio, mesmo que exija vários UPDATEs.
+11. **Rollback:** desfazer o conjunto quando ocorre erro. No banco, a transação reverte as posições; no React, o snapshot anterior restaura os cartões se a API falhar.
+12. **Impedir alteração alheia:** o usuário vem do cookie verificado; as consultas exigem associação ao workspace. Trocar o ID manualmente não passa por esse filtro. MEMBER também precisa ser criador para excluir.
+13. **Duas movimentações simultâneas:** o lock do Board faz uma esperar a outra. Cada uma calcula os índices sobre o estado confirmado mais recente, mantendo posições consecutivas. A última operação confirmada define a ordem final; outras telas consultam novamente ao recarregar.
+14. **Como testar:** usar contas e banco separados, chamar a API real, comparar os registros e repetir movimentos simultâneos. No navegador, testar formulário, mouse, teclado, toque alternativo, cancelamento, recarga e falha de rede. Os roteiros estão versionados em `test/`.
+
+Referências: [locks de linha no PostgreSQL 17](https://www.postgresql.org/docs/17/explicit-locking.html#LOCKING-ROWS) e [validação NestJS](https://docs.nestjs.com/techniques/validation). A política de ordenação e os limites acima são decisões do TaskFlow, documentadas junto ao código.
+
+Limites desta entrega: não há convites, gestão de membros, notificações, comentários, anexos, WebSockets ou deploy. A consulta de membros serve exclusivamente para escolher responsáveis existentes. Atualizações feitas por outra pessoa aparecem em uma nova consulta, sem sincronização em tempo real.

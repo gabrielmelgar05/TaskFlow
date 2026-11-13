@@ -38,6 +38,16 @@ export class WorkspacesService {
     return memberships.map(({ role, workspace }) => ({ ...workspace, role }));
   }
 
+  async members(workspaceId: string, userId: string) {
+    await this.requireMember(workspaceId, userId);
+    const members = await this.prisma.workspaceMember.findMany({
+      where: { workspaceId },
+      select: { user: { select: { id: true, name: true } } },
+      orderBy: [{ user: { name: 'asc' } }, { userId: 'asc' }],
+    });
+    return members.map(({ user }) => user);
+  }
+
   async create(userId: string, name: string) {
     // Nested write: workspace e OWNER são confirmados ou revertidos juntos.
     const workspace = await this.prisma.workspace.create({
