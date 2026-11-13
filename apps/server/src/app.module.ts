@@ -4,6 +4,8 @@ import { validateEnvironment } from './config/environment.js';
 import { HealthModule } from './health/health.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { WorkspacesModule } from './workspaces/workspaces.module.js';
+import { BoardsModule } from './boards/boards.module.js';
 
 @Module({
   imports: [
@@ -11,6 +13,8 @@ import { AuthModule } from './auth/auth.module.js';
     PrismaModule,
     HealthModule,
     AuthModule,
+    WorkspacesModule,
+    BoardsModule,
   ],
 })
 export class AppModule {}

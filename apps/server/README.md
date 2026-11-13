@@ -1,6 +1,6 @@
-# TaskFlow — API (Etapa 03)
+# TaskFlow — API (Etapa 04)
 
-NestJS 12 + TypeScript/ESM + Prisma 7/PrismaPg + PostgreSQL. A Etapa 02 permanece disponível; a Etapa 03 acrescenta cadastro, login, sessão persistente, logout e proteção da API. Workspaces, quadros e tarefas continuam fora do escopo.
+NestJS 12 + TypeScript/ESM + Prisma 7/PrismaPg + PostgreSQL. A Etapa 04 acrescenta CRUD de workspaces e quadros Kanban com autorização por associação, preservando saúde, autenticação, sessões, CSRF e rate limiting. Não inclui CRUD de tarefas, convites ou drag-and-drop. A seção **Etapa 04** abaixo descreve os novos módulos e a validação atual; os resultados anteriores estão identificados como históricos.
 
 ## Executar localmente
 
@@ -64,7 +64,7 @@ Falhas: **400** para campos inválidos; **401** para credenciais ou sessão inv�
 8. A cada requisição privada, o `AuthGuard` lê o cookie, calcula seu hash, consulta a sessão, valida a expiração no servidor e obtém apenas os dados públicos do usuário.
 9. O logout marca a sessão atual como expirada e remove o cookie com os mesmos atributos. O token antigo deixa de funcionar imediatamente; outras sessões do usuário continuam válidas.
 
-O `AuthGuard` é global: novas rotas exigem sessão por padrão. Somente rotas marcadas com `@Public()` dispensam a sessão. Isso não implementa autorização de futuros quadros/tarefas; essa autorização deverá verificar o dono ou membro permitido ao buscar dados.
+O `AuthGuard` é global: novas rotas exigem sessão por padrão. Somente rotas marcadas com `@Public()` dispensam a sessão. Os módulos de workspaces e quadros complementam esse guard: verificam a associação e o papel do usuário antes de permitir a operação.
 
 ## CSRF, proxy confiável e limite de tentativas
 
@@ -154,16 +154,16 @@ npm --prefix apps/server run build
 npm --prefix apps/server run lint
 npm --prefix apps/server test
 npm --prefix apps/server run test:e2e
-RUN_DATABASE_TESTS=true npm --prefix apps/server run test:e2e
+DATABASE_URL='postgresql://taskflow:taskflow_dev_123@localhost:5433/taskflow_etapa04_test_20261112?schema=public' RUN_DATABASE_TESTS=true npm --prefix apps/server run test:e2e
 ```
 
-O último comando habilita os testes com PostgreSQL real. Execute em banco local/de testes: são criadas contas únicas `auth-e2e-*`/`auth-test-*` com domínio `example.invalid`. Nenhuma conta anterior é alterada ou removida. Os testes mantêm esses registros isolados; não há comando de limpeza de dados. Sem a variável, os testes de banco ficam explicitamente ignorados, enquanto saúde com mock e rate limiting continuam executando.
+O último comando habilita os testes com PostgreSQL real. Prepare antes o banco isolado conforme a seção Etapa 04; a nova suíte rejeita nomes de banco fora de `taskflow_etapa04_test*`. Nos testes anteriores de autenticação: são criadas contas únicas `auth-e2e-*`/`auth-test-*` com domínio `example.invalid`. Nenhuma conta anterior é alterada ou removida. Os testes mantêm esses registros isolados; não há comando de limpeza de dados. Sem a variável, os testes de banco ficam explicitamente ignorados, enquanto saúde com mock e rate limiting continuam executando.
 
 Os testes cobrem cadastro válido, DTOs, e-mail duplicado, unicidade no banco, concorrência, senha inválida, login correto/incorreto, e-mail exato, sessão válida/inválida/expirada, logout e reuso do token, atributos do cookie, CORS, CSRF, proxy confiável, rate limiting, proteção padrão e ausência de dados privados no JSON.
 
 A validação completa também passou pelo Chrome + Wrangler/workerd: o navegador usou `/api`, que encaminhou as requisições ao NestJS e ao PostgreSQL real. A instância temporária da API foi encerrada para verificar 502 seguro no proxy e mensagem de conexão no frontend, sem redirecionamento indevido para login. O processo já existente na porta 3001 não foi interrompido; os testes de navegador usaram uma instância isolada na porta 3101.
 
-### Resultado final desta entrega
+### Resultado histórico da Etapa 03
 
 | Verificação executada | Resultado |
 | --- | --- |
@@ -188,7 +188,7 @@ Referências: [NestJS rate limiting](https://docs.nestjs.com/security/rate-limit
 ## Explicação para entrevistas
 
 1. **Autenticação:** verifica quem está usando o sistema. Aqui, a senha comprova a identidade no login; a sessão comprova a identidade nas próximas requisições.
-2. **Autorização:** verifica o que essa pessoa pode acessar ou alterar. Estar autenticado não permitirá, por si só, acessar os quadros de outra pessoa. Essa regra será implementada junto aos recursos futuros.
+2. **Autorização:** verifica o que essa pessoa pode acessar ou alterar. Estar autenticado não permitirá, por si só, acessar os quadros de outra pessoa. Essa regra é aplicada nos services de workspaces e quadros, usando WorkspaceMember.
 3. **Senhas não são salvas diretamente:** um vazamento de texto puro entregaria imediatamente todas as senhas. O banco guarda somente o resultado do hash.
 4. **Hash de senha:** transformação de mão única, com salt e custo de processamento/memória. Argon2id verifica se a senha recebida corresponde ao resultado armazenado; não precisamos recuperar a senha original.
 5. **Sessão:** registro no servidor que liga um token aleatório a um usuário e a uma data de expiração. Ela permite reconhecer requisições seguintes e encerrar o acesso no logout.
@@ -197,3 +197,133 @@ Referências: [NestJS rate limiting](https://docs.nestjs.com/security/rate-limit
 8. **Como React sabe da sessão:** chama `/api/auth/me` com `credentials: "include"`. O `AuthProvider` guarda somente o estado e os dados públicos em memória. Ao atualizar a página, essa consulta é feita novamente usando o cookie persistido pelo navegador.
 9. **Como Prisma recupera o usuário:** no login, faz busca exata pelo e-mail normalizado. Nas requisições privadas, busca `Session` pelo hash do token e segue a relação `session.user`, selecionando apenas `id`, `name` e `email`.
 10. **Quando a sessão expira:** o backend retorna 401 mesmo que alguém ainda tenha o token. O frontend deixa de exibir a área privada e encaminha para login. Uma falha de rede ou do banco recebe outro tratamento: mensagem de conexão e nova tentativa, sem concluir que a sessão é inválida.
+
+
+## Etapa 04 — workspaces e quadros
+
+### Endpoints e permissões
+
+Todos exigem a sessão HTTP-only existente. POST/PATCH/DELETE também exigem um `Origin` permitido. O usuário vem de `request.auth.user.id`; o JSON de entrada aceita somente `{ "name": "Nome" }`. Campos como `userId`, `role` ou `workspaceId` no corpo são rejeitados.
+
+| Método | Endpoint | Permissão | Resposta |
+| --- | --- | --- | --- |
+| GET | `/api/workspaces` | Qualquer usuário autenticado; somente suas associações | Array de `{ id, name, role }` |
+| POST | `/api/workspaces` | Qualquer usuário autenticado | 201, workspace com papel OWNER |
+| GET | `/api/workspaces/:id` | OWNER, ADMIN, MEMBER | `{ id, name, role }` |
+| PATCH | `/api/workspaces/:id` | OWNER, ADMIN | Workspace renomeado |
+| DELETE | `/api/workspaces/:id` | OWNER | 204; cascata dos descendentes |
+| GET | `/api/workspaces/:workspaceId/boards` | OWNER, ADMIN, MEMBER | Array de quadros do workspace |
+| POST | `/api/workspaces/:workspaceId/boards` | OWNER, ADMIN | 201, quadro e três colunas persistidos |
+| GET | `/api/boards/:id` | OWNER, ADMIN, MEMBER | Quadro, workspace com papel do usuário e colunas ordenadas |
+| PATCH | `/api/boards/:id` | OWNER, ADMIN | Quadro renomeado |
+| DELETE | `/api/boards/:id` | OWNER, ADMIN | 204; cascata das colunas |
+
+Nomes têm de 1 a 100 caracteres, recebem trim e normalização de espaços repetidos. Aceitam letras Unicode, acentos, números e pontuação simples; rejeitam controles, quebras de linha e marcação HTML. A mesma regra aparece no frontend para dar feedback antecipado. Nome repetido é permitido: a identidade é o ID.
+
+Recursos inexistentes e recursos de terceiros recebem **404**. Um membro conhecido sem o papel exigido recebe **403**. DTO inválido recebe **400**; sessão inválida, **401**; falha Prisma, **503**, sem detalhes internos. O filtro dos novos módulos trata falhas do banco sem convertê-las em sessão expirada. As respostas de sucesso têm `Cache-Control: no-store`. O CORS foi ampliado para PATCH e DELETE; os limites de login/cadastro existentes foram preservados.
+
+A listagem de workspaces usa criação crescente e ID como desempate; a de quadros usa a mesma ordem. Colunas usam `position` crescente, depois ID. A consulta de detalhes apenas lê; não cria colunas.
+
+### Arquivos da etapa
+
+```text
+src/
+  workspaces/
+    workspaces.module.ts       # registra e exporta o service
+    workspaces.controller.ts   # cinco endpoints HTTP
+    workspaces.service.ts      # associação, papéis e consultas Prisma
+    dto/create-workspace.dto.ts
+    dto/update-workspace.dto.ts
+  boards/
+    boards.module.ts           # importa WorkspacesModule e PrismaModule
+    boards.controller.ts      # endpoints de quadros
+    boards.service.ts         # autorização e criação aninhada das colunas
+    dto/create-board.dto.ts
+    dto/update-board.dto.ts
+  common/
+    dto/resource-name.dto.ts   # validação compartilhada dos quatro DTOs
+    resource-errors.filter.ts # resposta segura para erros Prisma
+  app.module.ts               # registra os dois módulos novos
+  configure-app.ts            # CORS com PATCH/DELETE
+test/workspaces-boards.e2e-spec.ts
+```
+
+Não há dependências novas nem alterações em User, Session, Task, schema ou migrações. Workspace, WorkspaceMember, Board e BoardColumn já existiam. As duas migrações anteriores foram reaplicadas **somente em um banco de teste novo**, sem reset.
+
+### Relações, atomicidade e isolamento
+
+```text
+User 1 ── N WorkspaceMember N ── 1 Workspace
+                   role                  1
+                                         │
+                                         N Board
+                                         1
+                                         │
+                                         N BoardColumn
+                                         1
+                                         │
+                                         N Task (sem endpoints nesta etapa)
+```
+
+`WorkspaceMember` tem unicidade de `(userId, workspaceId)`: uma pessoa tem um papel por workspace. Excluir Workspace remove suas associações e quadros; excluir Board remove suas colunas; a política já existente também remove tarefas descendentes. Nenhum outro workspace entra no filtro de exclusão.
+
+A criação aninhada `workspace.create({ data: { name, members: { create: ... } } })` confirma o workspace e seu OWNER juntos. `board.create` cria o quadro e as três colunas **A fazer (0)**, **Em andamento (1)** e **Concluído (2)** juntos. Se uma inserção falhar, o banco reverte o conjunto. As escritas incluem novamente a associação e os papéis no filtro Prisma, além da verificação do service.
+
+### Executar os testes com banco isolado
+
+Use Node.js 24 e npm; PostgreSQL do Compose deve estar ativo. Na raiz, crie um banco separado uma vez (se já existir, reutilize-o):
+
+```bash
+docker compose exec -T db createdb -U taskflow taskflow_etapa04_test_20261112
+```
+
+Em **apps/server**, sem modificar `.env`:
+
+```bash
+export DATABASE_URL='postgresql://taskflow:taskflow_dev_123@localhost:5433/taskflow_etapa04_test_20261112?schema=public'
+npm exec -- prisma generate --config prisma7.config.ts
+npm exec -- prisma validate --config prisma7.config.ts
+npm exec -- prisma migrate deploy --config prisma7.config.ts
+npm exec -- prisma migrate status --config prisma7.config.ts
+npm run lint
+npm run build
+npm test
+RUN_DATABASE_TESTS=true npm run test:e2e
+```
+
+A suíte da Etapa 04 cria quatro contas e seus próprios workspaces; limpa somente esses registros ao terminar. Para verificar a atomicidade de quadros, instala um trigger temporário que provoca falha na terceira coluna e depois o remove. Por isso, essa suíte exige um nome de banco `taskflow_etapa04_test*`. Não execute com o banco da aplicação. A suíte anterior de autenticação preserva suas contas isoladas de teste no mesmo banco separado. Sem `RUN_DATABASE_TESTS=true`, os testes de banco ficam explicitamente ignorados.
+
+### Resultados da Etapa 04 — 12/11/2026
+
+| Verificação executada | Resultado |
+| --- | --- |
+| Build NestJS e lint | Passaram |
+| Testes de configuração | 25 passaram |
+| Suíte HTTP completa com PostgreSQL | 45 passaram: 29 existentes + 16 novos |
+| Prisma validate | Schema válido |
+| Migrate deploy/status no banco isolado | Duas migrações aplicadas; atualizado |
+| Reversão de workspace e quadro incompleto | Verificada com falha real de FK e trigger PostgreSQL |
+| IDOR, MEMBER, ADMIN, OWNER, CSRF, CORS e sessão | Verificados via HTTP real |
+| Persistência | Dados e sessão consultados por outra instância NestJS |
+| Frontend integrado | 19 testes unitários e 13 verificações de navegador aprovados; detalhes no README web |
+
+O banco original da aplicação não foi migrado nem limpo nesta validação. Não houve reset, deploy, git add, commit, push ou merge. O aviso de build do Next.js sobre um package-lock fora do repositório é do ambiente e não impede a exportação. Detalhes do roteiro de navegador estão no [README web](../web/README.md#etapa-04--experiência-de-quadros).
+
+### Explicação da Etapa 04 para entrevistas
+
+1. **Workspace:** espaço que agrupa projetos. Exemplo: “Meu portfólio” contém vários quadros. Cada workspace tem suas próprias associações e permissões.
+2. **Quadro Kanban:** visão de um projeto separada por etapas. “TaskFlow” começa com A fazer, Em andamento e Concluído. Nesta etapa só gerenciamos o quadro e lemos suas colunas.
+3. **CRUD:** Create, Read, Update, Delete: criar, consultar, renomear e excluir workspaces/quadros. Cada ação corresponde a um método HTTP.
+4. **Controller:** recebe a chamada HTTP, aplica o DTO e entrega usuário/entrada ao service. Exemplo: `POST /workspaces` chama `workspaces.create` com o ID da sessão.
+5. **Service:** concentra as regras. Antes de renomear um workspace, verifica se o usuário é OWNER ou ADMIN e só depois pede a alteração ao Prisma.
+6. **DTO:** define a entrada aceita. Aqui, o nome deve ser uma string válida com até 100 caracteres; `userId` arbitrário é rejeitado antes de chegar ao service.
+7. **Relação entre tabelas:** uma chave estrangeira liga registros. `Board.workspaceId` aponta para `Workspace.id`, permitindo buscar os quadros de um workspace e aplicar sua cascata de exclusão.
+8. **WorkspaceMember:** tabela que liga usuários e workspaces e guarda o papel OWNER/ADMIN/MEMBER. Uma pessoa pode pertencer a vários espaços e um espaço pode ter várias pessoas. Não há gestão dessas associações pela interface nesta etapa.
+9. **Transação:** garante tudo ou nada. Se falhar a criação da terceira coluna, nenhum quadro incompleto fica salvo. As criações aninhadas do Prisma executam esse conjunto atomicamente.
+10. **Impedir acesso a dados alheios:** autenticar a sessão e filtrar a consulta pela associação do usuário. Saber o ID de um quadro não dá acesso; sem associação a API responde 404. A UI esconder botões é apenas conveniência.
+11. **Como React recebe a API:** `useApiResource` chama o cliente HTTP com cookies, recebe JSON e atualiza o estado. Respostas atrasadas são descartadas ao trocar de workspace. O estado exibe o resultado do banco; não substitui sua persistência.
+12. **Como PostgreSQL salva:** formulário → cliente HTTP → controller/DTO → service com autorização → Prisma → PostgreSQL. Só após sucesso a interface confirma a operação e consulta novamente a lista. Recarregar executa novas consultas ao mesmo banco.
+
+Referências da implementação: [validação NestJS](https://docs.nestjs.com/techniques/validation) e [Prisma 7: nested writes](https://www.prisma.io/docs/orm/prisma-client/queries/relation-queries#nested-writes). A documentação atual do Prisma pode apresentar APIs de versões posteriores; este projeto mantém o Prisma 7 instalado.
+
+Próxima etapa: CRUD de tarefas e, quando previsto, interação de movimentação. Nenhuma dessas funcionalidades foi antecipada. Convites, gestão de membros e compartilhamento também permanecem fora desta entrega.

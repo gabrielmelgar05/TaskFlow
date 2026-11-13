@@ -734,3 +734,337 @@ main:focus {
     font-size: 25px;
   }
 }
+
+/* Etapa 04: usa as superfícies e a paleta existentes. */
+.workspace-main,
+.page-content {
+  min-width: 0;
+}
+.boards-heading {
+  flex-wrap: wrap;
+}
+.boards-heading > div {
+  min-width: 0;
+}
+.workspace-toolbar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.workspace-selector {
+  flex: 1 1 220px;
+  max-width: 360px;
+  min-width: 0;
+}
+.workspace-selector label {
+  display: block;
+  font-size: 11px;
+  color: var(--color-muted);
+  margin-bottom: 7px;
+}
+.workspace-selector select {
+  min-height: 46px;
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid #cfcec2;
+  border-radius: 10px;
+  background: var(--color-surface);
+  padding: 10px 30px 10px 12px;
+  font-size: 14px;
+  text-overflow: ellipsis;
+}
+.workspace-role {
+  align-self: center;
+  padding-top: 16px;
+  color: var(--color-muted);
+  font-size: 11px;
+}
+.workspace-tools {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-left: auto;
+}
+.boards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 18px;
+  padding: 24px;
+}
+.board-card {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  background: var(--color-surface);
+}
+.board-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.board-symbol {
+  display: grid;
+  place-items: center;
+  background: var(--color-pink);
+  border-radius: 11px;
+  width: 42px;
+  height: 42px;
+}
+.board-card h3 {
+  font-weight: 600;
+  font-size: 17px;
+  margin-top: 20px;
+  overflow-wrap: anywhere;
+}
+.board-card h3 a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.board-card > p {
+  font-size: 11px;
+  color: var(--color-muted);
+  margin-top: 9px;
+}
+.board-open {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-line);
+  font-size: 12px;
+  font-weight: 500;
+}
+.action-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+.action-menu[open] {
+  z-index: 10;
+}
+.action-menu summary {
+  list-style: none;
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  letter-spacing: 2px;
+}
+.action-menu summary::-webkit-details-marker {
+  display: none;
+}
+.action-menu summary:hover {
+  background: var(--color-paper);
+}
+.action-popover {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 6px);
+  right: 0;
+  width: min(210px, calc(100vw - 64px));
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  background: var(--color-surface);
+  padding: 6px;
+  box-shadow: 0 8px 25px #24251f14;
+}
+.action-popover button {
+  display: block;
+  text-align: left;
+  width: 100%;
+  min-height: 44px;
+  font-size: 12px;
+  padding: 10px;
+  border-radius: 8px;
+}
+.action-popover button:hover {
+  background: var(--color-paper);
+}
+.danger-text {
+  color: #9d333b;
+}
+.resource-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(480px, calc(100% - 32px));
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+  padding: 28px;
+  border: 1px solid var(--color-line);
+  border-radius: 18px;
+  color: var(--color-ink);
+  background: var(--color-surface);
+  box-shadow: 0 24px 80px #20221e26;
+}
+.resource-dialog::backdrop {
+  background: #20221e80;
+}
+.dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.dialog-heading h2 {
+  font-size: 23px;
+  font-weight: 550;
+  letter-spacing: -0.7px;
+}
+.dialog-close {
+  flex-shrink: 0;
+  width: 44px;
+  padding: 0;
+  font-size: 24px;
+}
+.dialog-description {
+  font-size: 13px;
+  color: var(--color-muted);
+  line-height: 1.8;
+  margin-top: 14px;
+  overflow-wrap: anywhere;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 28px;
+}
+.button-danger {
+  background: #9d333b;
+}
+.button-danger:hover {
+  background: #81272f;
+}
+.success-notice {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #365b36;
+  background: #e9efdf;
+  border: 1px solid #cad9bb;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+}
+.resource-loading {
+  display: flex;
+  min-height: 230px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  font-size: 13px;
+  color: var(--color-muted);
+  padding: 24px;
+}
+.resource-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  text-align: center;
+  padding: 40px 24px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.resource-name {
+  overflow-wrap: anywhere;
+}
+.kanban-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 18px;
+}
+.kanban-column {
+  min-width: 0;
+  min-height: 330px;
+  padding: 20px 16px;
+  border: 1px solid var(--color-line);
+  border-radius: 15px;
+  background: #efede3;
+}
+.kanban-column-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.kanban-column-heading h2 {
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.column-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #b78ba5;
+}
+.kanban-column:nth-child(2) .column-dot {
+  background: #7793b6;
+}
+.kanban-column:nth-child(3) .column-dot {
+  background: #7d9266;
+}
+.kanban-empty {
+  display: grid;
+  place-items: center;
+  min-height: 160px;
+  border: 1px dashed #d1cfc3;
+  border-radius: 10px;
+  margin-top: 24px;
+  padding: 16px;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+.recent-boards li + li {
+  border-top: 1px solid var(--color-line);
+}
+.recent-boards a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 48px;
+  padding: 12px 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.recent-boards a:hover {
+  color: #805775;
+}
+@media (max-width: 900px) {
+  .kanban-grid {
+    grid-template-columns: 1fr;
+  }
+  .kanban-column {
+    min-height: 220px;
+  }
+}
+@media (max-width: 480px) {
+  .workspace-tools {
+    margin-left: 0;
+  }
+  .workspace-role {
+    padding-top: 0;
+  }
+  .boards-grid {
+    padding: 16px;
+  }
+  .resource-dialog {
+    padding: 22px;
+  }
+}
