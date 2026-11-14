@@ -92,11 +92,13 @@ describe.skipIf(process.env.RUN_DATABASE_TESTS !== 'true')(
     }
     beforeAll(async () => {
       if (
-        !/^taskflow_etapa0[456]_test/.test(
+        !/^taskflow_etapa0[4567]_test/.test(
           new URL(process.env.DATABASE_URL ?? '').pathname.slice(1),
         )
       )
-        throw new Error('Use um banco isolado taskflow_etapa05_test* ou taskflow_etapa06_test*.');
+        throw new Error(
+          'Use um banco isolado taskflow_etapa05_test* ou taskflow_etapa06_test* ou taskflow_etapa07_test*.',
+        );
       const module = await Test.createTestingModule({
         imports: [AppModule],
       }).compile();
@@ -496,6 +498,9 @@ describe.skipIf(process.env.RUN_DATABASE_TESTS !== 'true')(
         await call('patch', `/api/tasks/${a.id}/move`, owner)
           .send({ columnId, position: 0 })
           .expect(400);
+      await call('patch', `/api/tasks/${a.id}/transfer`, owner)
+        .send({ columnId: columns[0].id })
+        .expect(404);
       expect((await list())[0].columnId).toBe(columns[0].id);
     });
     it('IDOR recebe 404 para todas as operações e não revela recursos', async () => {

@@ -35,7 +35,7 @@ export function ConnectionNotice() {
       <Button
         disabled={status === "checking"}
         variant="secondary"
-        className="min-h-10 px-4 text-xs"
+        className="min-h-10 px-4 text-sm"
         onClick={() => {
           setStatus("checking");
           setAttempt((value) => value + 1);

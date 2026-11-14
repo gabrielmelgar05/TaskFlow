@@ -69,6 +69,11 @@ export function TaskBoard({
   const sending = useRef(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  function open(state: DialogState) {
+    setError("");
+    setNotice("");
+    setDialog(state);
+  }
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, {
@@ -79,7 +84,8 @@ export function TaskBoard({
   async function move(id: string, columnId: string, position: number) {
     if (sending.current) return false;
     const task = tasks.find((item) => item.id === id);
-    if (!task) return false;
+    if (!task || !board.columns.some((column) => column.id === columnId))
+      return false;
     if (task.columnId === columnId && task.position === position) return true;
     sending.current = true;
     setBusy(true);
@@ -164,11 +170,6 @@ export function TaskBoard({
     setError("");
     closeDialog();
   }
-  const open = (state: DialogState) => {
-    setError("");
-    setNotice("");
-    setDialog(state);
-  };
   if (resource.loading) return <ResourceLoading label="Carregando tarefas…" />;
   if (resource.error)
     return <ResourceError message={resource.error} retry={resource.reload} />;
@@ -190,8 +191,8 @@ export function TaskBoard({
         </p>
       )}
       <p className="kanban-help">
-        Arraste pela alça ⠿ para organizar. Você também pode usar Mover tarefa
-        no menu de cada cartão.
+        Arraste pela alça ⠿ para organizar as tarefas entre colunas. Você também
+        pode usar Mover tarefa no menu de cada cartão.
       </p>
       {busy && (
         <p role="status" className="field-hint mb-3">

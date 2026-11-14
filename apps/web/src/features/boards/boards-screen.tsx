@@ -60,9 +60,7 @@ export function BoardsScreen() {
           </p>
         </div>
         {workspace && manageable && (
-          <Button onClick={createBoard}>
-            Criar quadro <Icon name="arrow" width="16" height="16" />
-          </Button>
+          <Button onClick={createBoard}>Criar quadro</Button>
         )}
       </div>
       {notice && (
@@ -166,7 +164,7 @@ export function BoardsScreen() {
                       }).format(new Date(board.createdAt))}
                     </p>
                     <Link className="board-open" href={boardHref(board.id)}>
-                      Abrir quadro <Icon name="arrow" width="16" height="16" />
+                      Abrir quadro
                     </Link>
                   </article>
                 ))}

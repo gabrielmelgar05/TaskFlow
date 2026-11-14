@@ -1,3 +1,4 @@
+import { selectOption } from "./browser-select.mjs";
 // Roteiro integrado opcional: exportação estática + proxy + API + PostgreSQL.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -12,8 +13,14 @@ const { chromium } = await import(
   process.env.PLAYWRIGHT_MODULE ?? "playwright"
 );
 const connectionString = process.env.DATABASE_URL ?? "";
-if (!/^taskflow_etapa0[56]_test/.test(new URL(connectionString).pathname.slice(1)))
-  throw new Error("Use somente um banco isolado taskflow_etapa05_test* ou taskflow_etapa06_test*.");
+if (
+  !/^taskflow_etapa0[567]_test/.test(
+    new URL(connectionString).pathname.slice(1),
+  )
+)
+  throw new Error(
+    "Use somente um banco isolado taskflow_etapa05_test* ou taskflow_etapa06_test* ou taskflow_etapa07_test*.",
+  );
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString }),
 });
@@ -228,14 +235,18 @@ try {
   await dialog
     .getByLabel("Descrição", { exact: false })
     .fill("Descrição completa\npara estudar a integração.");
-  await dialog.getByLabel("Prioridade", { exact: true }).selectOption("URGENT");
+  await selectOption(
+    dialog.getByLabel("Prioridade", { exact: true }),
+    "URGENT",
+  );
   await dialog.getByLabel("Prazo", { exact: false }).fill("2026-11-20");
   await visible(
     dialog.getByText("Só você participa deste workspace.", { exact: false }),
   );
-  await dialog
-    .getByLabel("Responsável", { exact: false })
-    .selectOption(owner.id);
+  await selectOption(
+    dialog.getByLabel("Responsável", { exact: false }),
+    owner.id,
+  );
   await dialog
     .getByRole("button", { name: "Criar tarefa", exact: true })
     .click();
@@ -262,6 +273,78 @@ try {
     "Revisar interface",
     "Escrever testes",
   ]);
+  const beforeSecondaryClick = await api("GET", `/boards/${boardId}/tasks`);
+  const beforeSecondaryRequests = moveRequests;
+  await page.evaluate(() => {
+    window.taskContextMenus = [];
+    document.addEventListener("contextmenu", (event) => {
+      queueMicrotask(() =>
+        window.taskContextMenus.push(event.defaultPrevented),
+      );
+    });
+  });
+  for (const target of [
+    card("Preparar API").locator(".task-title"),
+    page.getByRole("button", {
+      name: "Arrastar tarefa Preparar API",
+      exact: true,
+    }),
+  ]) {
+    const rect = await target.boundingBox();
+    const destination = await page
+      .locator(`[data-column-id="${doing.id}"]`)
+      .boundingBox();
+    await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    await page.mouse.down({ button: "right" });
+    await page.mouse.move(
+      rect.x + rect.width / 2 + 20,
+      rect.y + rect.height / 2,
+      { steps: 4 },
+    );
+    assert.equal(
+      await page
+        .locator(".task-drag-preview, .column-drag-preview, .transfer-targets")
+        .count(),
+      0,
+    );
+    await page.mouse.move(
+      destination.x + destination.width / 2,
+      destination.y + 120,
+      { steps: 12 },
+    );
+    await page.mouse.up({ button: "right" });
+    await page.keyboard.press("Escape");
+  }
+  const contextMenus = await page.evaluate(() => window.taskContextMenus);
+  assert.ok(
+    contextMenus.length >= 2,
+    "cliques secundários emitiram o menu de contexto",
+  );
+  assert.ok(
+    contextMenus.every((prevented) => prevented === false),
+    "menu nativo não é bloqueado",
+  );
+  assert.equal(moveRequests, beforeSecondaryRequests);
+  assert.deepEqual(
+    await api("GET", `/boards/${boardId}/tasks`),
+    beforeSecondaryClick,
+  );
+  assert.equal(await page.getByRole("dialog").count(), 0);
+  await page
+    .getByLabel("Ações da tarefa Preparar API", { exact: true })
+    .click();
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Mover para outro quadro", exact: true })
+      .count(),
+    0,
+  );
+  for (const action of ["Editar tarefa", "Mover tarefa", "Excluir tarefa"])
+    await visible(page.getByRole("button", { name: action, exact: true }));
+  await page.keyboard.press("Escape");
+  report(
+    "botão secundário no cartão e na alça mantém o menu nativo, sem arraste, prévia, painel ou gravação; ações preservadas",
+  );
   await page
     .getByRole("button", { name: "Abrir tarefa Preparar API", exact: true })
     .click();
@@ -271,9 +354,9 @@ try {
     "Descrição completa\npara estudar a integração.",
   );
   await dialog.getByLabel("Título", { exact: true }).fill("API revisada");
-  await dialog.getByLabel("Prioridade", { exact: true }).selectOption("HIGH");
+  await selectOption(dialog.getByLabel("Prioridade", { exact: true }), "HIGH");
   await dialog.getByLabel("Prazo", { exact: false }).fill("");
-  await dialog.getByLabel("Responsável", { exact: false }).selectOption("");
+  await selectOption(dialog.getByLabel("Responsável", { exact: false }), "");
   await dialog
     .getByRole("button", { name: "Salvar alterações", exact: true })
     .click();
@@ -289,9 +372,10 @@ try {
     .click();
   dialog = page.getByRole("dialog", { name: "Editar tarefa", exact: true });
   await dialog.getByLabel("Prazo", { exact: false }).fill("2026-01-01");
-  await dialog
-    .getByLabel("Responsável", { exact: false })
-    .selectOption(owner.id);
+  await selectOption(
+    dialog.getByLabel("Responsável", { exact: false }),
+    owner.id,
+  );
   await dialog
     .getByRole("button", { name: "Salvar alterações", exact: true })
     .click();
@@ -406,9 +490,10 @@ try {
   await page.unroute("**/api/tasks/*/move");
   await taskMenu("Revisar interface", "Mover tarefa");
   dialog = page.getByRole("dialog", { name: "Mover tarefa", exact: true });
-  await dialog
-    .getByLabel("Coluna de destino", { exact: true })
-    .selectOption(doing.id);
+  await selectOption(
+    dialog.getByLabel("Coluna de destino", { exact: true }),
+    doing.id,
+  );
   await dialog
     .getByRole("button", { name: "Mover tarefa", exact: true })
     .click();
@@ -428,12 +513,14 @@ try {
   );
   await taskMenu("API revisada", "Mover tarefa", page, true);
   dialog = page.getByRole("dialog", { name: "Mover tarefa", exact: true });
-  await dialog
-    .getByLabel("Coluna de destino", { exact: true })
-    .selectOption(doing.id);
-  await dialog
-    .getByLabel("Posição na coluna", { exact: true })
-    .selectOption("1");
+  await selectOption(
+    dialog.getByLabel("Coluna de destino", { exact: true }),
+    doing.id,
+  );
+  await selectOption(
+    dialog.getByLabel("Posição na coluna", { exact: true }),
+    "1",
+  );
   await dialog.getByRole("button", { name: "Mover tarefa", exact: true }).tap();
   await dialog.waitFor({ state: "detached" });
   await expectOrder(boardId, doing.id, ["Revisar interface", "API revisada"]);
@@ -535,16 +622,17 @@ try {
       memberPage.getByRole("dialog", { name: "Editar tarefa", exact: true }),
     );
     await memberPage
+      .getByRole("dialog")
+      .getByLabel("Responsável", { exact: false })
+      .click();
+    await memberPage
       .getByRole("option", { name: "Membro de teste", exact: true })
       .waitFor({ state: "attached" });
     assert.equal(
-      await memberPage
-        .getByRole("dialog")
-        .getByLabel("Responsável", { exact: false })
-        .locator("option")
-        .count(),
+      await memberPage.getByRole("dialog").getByRole("option").count(),
       3,
     );
+    await memberPage.keyboard.press("Escape");
     await memberPage.keyboard.press("Escape");
     await createTask("Criada pelo membro", memberPage);
     await taskMenu("Criada pelo membro", "Excluir tarefa", memberPage);

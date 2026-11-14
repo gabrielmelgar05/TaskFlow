@@ -1,3 +1,4 @@
+import { selectOption } from "./browser-select.mjs";
 // Dashboard integrado: dados reais em PostgreSQL isolado, sem dados demonstrativos na aplicação.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -13,11 +14,11 @@ const { chromium } = await import(
 );
 const connectionString = process.env.DATABASE_URL ?? "";
 if (
-  !new URL(connectionString).pathname
-    .slice(1)
-    .startsWith("taskflow_etapa06_test")
+  !/^taskflow_etapa0[67]_test/.test(new URL(connectionString).pathname.slice(1))
 )
-  throw new Error("Use somente um banco isolado taskflow_etapa06_test*.");
+  throw new Error(
+    "Use somente um banco isolado taskflow_etapa06_test* ou taskflow_etapa07_test*.",
+  );
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString }),
 });
@@ -147,7 +148,7 @@ try {
   );
   const workspaceA = await page
     .getByLabel("Workspace atual", { exact: true })
-    .inputValue();
+    .getAttribute("data-value");
   workspaces.push(workspaceA);
   report(
     "primeiro acesso, criação de workspace pelo dashboard e zeros reais sem quadros",
@@ -269,7 +270,7 @@ try {
     true,
   );
   await dialog.getByLabel("Título", { exact: true }).fill("Acesso revisado");
-  await dialog.getByLabel("Prioridade", { exact: true }).selectOption("LOW");
+  await selectOption(dialog.getByLabel("Prioridade", { exact: true }), "LOW");
   await dialog.getByLabel("Prazo", { exact: false }).fill(dateOffset(10));
   await dialog
     .getByRole("button", { name: "Salvar alterações", exact: true })
@@ -292,11 +293,10 @@ try {
   await openBoard(board.id);
   await taskMenu("Revisar entrega", "Mover tarefa");
   dialog = page.getByRole("dialog", { name: "Mover tarefa", exact: true });
-  await dialog
-    .getByLabel("Coluna de destino", { exact: true })
-    .selectOption(
-      details.columns.find((column) => column.status === "DONE").id,
-    );
+  await selectOption(
+    dialog.getByLabel("Coluna de destino", { exact: true }),
+    details.columns.find((column) => column.status === "DONE").id,
+  );
   await dialog
     .getByRole("button", { name: "Mover tarefa", exact: true })
     .click();
@@ -329,7 +329,7 @@ try {
     .click();
   dialog = page.getByRole("dialog", { name: "Criar tarefa", exact: true });
   await dialog.getByLabel("Título", { exact: true }).fill("Validar dashboard");
-  await dialog.getByLabel("Prioridade", { exact: true }).selectOption("HIGH");
+  await selectOption(dialog.getByLabel("Prioridade", { exact: true }), "HIGH");
   await dialog
     .getByRole("button", { name: "Criar tarefa", exact: true })
     .click();
@@ -357,9 +357,10 @@ try {
   });
   await page.reload();
   await expectMetrics([4, 0, 2, 0]);
-  await page
-    .getByLabel("Workspace atual", { exact: true })
-    .selectOption(workspaceB.id);
+  await selectOption(
+    page.getByLabel("Workspace atual", { exact: true }),
+    workspaceB.id,
+  );
   await expectMetrics([1, 0, 0, 1]);
   assert.equal(
     await page.getByRole("link", { name: "Produto web", exact: false }).count(),
@@ -372,7 +373,9 @@ try {
   await page.reload();
   await expectMetrics([1, 0, 0, 1]);
   assert.equal(
-    await page.getByLabel("Workspace atual", { exact: true }).inputValue(),
+    await page
+      .getByLabel("Workspace atual", { exact: true })
+      .getAttribute("data-value"),
     workspaceB.id,
   );
   report(

@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Brand } from "@/components/ui/brand";
-import { Icon } from "@/components/ui/icon";
 import { ApiError, type FieldErrors } from "@/lib/api";
 import { validateAuthForm } from "@/lib/auth-validation";
 import { useAuth } from "./auth-provider";
@@ -216,10 +215,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
                 {register ? "Criando sua conta…" : "Entrando…"}
               </>
             ) : (
-              <>
-                {register ? "Criar minha conta" : "Entrar"}
-                <Icon name="arrow" width="17" height="17" />
-              </>
+              <>{register ? "Criar minha conta" : "Entrar"}</>
             )}
           </Button>
         </form>

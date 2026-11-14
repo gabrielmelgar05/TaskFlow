@@ -1,6 +1,7 @@
 "use client";
 import { useId, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { columnTasks } from "../task-utils";
 import type { Task } from "../types";
@@ -50,39 +51,36 @@ export function TaskMoveDialog({
       <form className="task-form" onSubmit={submit}>
         <div className="form-field">
           <label htmlFor={`${prefix}-column`}>Coluna de destino</label>
-          <select
+          <Select
             data-dialog-focus
             id={`${prefix}-column`}
             value={columnId}
             disabled={busy}
-            onChange={(event) => {
-              setColumnId(event.target.value);
+            onValueChange={(value) => {
+              setColumnId(value);
               setPosition(0);
             }}
-          >
-            {board.columns.map((column) => (
-              <option key={column.id} value={column.id}>
-                {column.name}
-              </option>
-            ))}
-          </select>
+            options={board.columns.map((column) => ({
+              value: column.id,
+              label: column.name,
+            }))}
+          />
         </div>
         <div className="form-field">
           <label htmlFor={`${prefix}-position`}>Posição na coluna</label>
-          <select
+          <Select
             id={`${prefix}-position`}
-            value={Math.min(position, max)}
+            value={String(Math.min(position, max))}
             disabled={busy}
-            onChange={(event) => setPosition(Number(event.target.value))}
-          >
-            {Array.from({ length: max + 1 }, (_, index) => (
-              <option value={index} key={index}>
-                {index === max
+            onValueChange={(value) => setPosition(Number(value))}
+            options={Array.from({ length: max + 1 }, (_, index) => ({
+              value: String(index),
+              label:
+                index === max
                   ? `${index + 1} — Final da coluna`
-                  : `${index + 1} — Antes de ${targets[index].title}`}
-              </option>
-            ))}
-          </select>
+                  : `${index + 1} — Antes de ${targets[index].title}`,
+            }))}
+          />
         </div>
         {error && (
           <p className="form-alert" role="alert">

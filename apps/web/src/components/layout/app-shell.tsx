@@ -33,10 +33,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="truncate" title={workspaceName}>
               {workspaceName}
             </span>
-            <small>Um lugar para suas ideias</small>
+            <small>Workspace atual</small>
           </div>
         </div>
-        <p className="nav-label">WORKSPACE</p>
+        <p className="nav-label">Navegação</p>
         <nav aria-label="Navegação principal" className="navigation">
           {navigation.map((item) => {
             const active =
@@ -52,54 +52,22 @@ export function AppShell({ children }: { children: ReactNode }) {
               >
                 <Icon name={item.icon} />
                 <span>{item.label}</span>
-                {active && <span className="nav-active-dot" />}
               </Link>
             );
           })}
         </nav>
-        <div className="sidebar-bottom">
-          <div className="sidebar-note">
-            <svg
-              width="74"
-              height="48"
-              viewBox="0 0 74 48"
-              fill="none"
-              aria-hidden="true"
-            >
-              <path
-                d="M3 35C13 8 19 5 24 20s13 25 21 8S59 9 69 17M61 7l9 9-12 4"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <p>
-              Menos ruído.
-              <br />
-              Mais fluxo.
-            </p>
-            <span>Um passo de cada vez.</span>
-          </div>
-          <div className="sidebar-foot">
-            <span className="small-brand-mark" aria-hidden="true">
-              ✳
-            </span>{" "}
-            Seu espaço, suas ideias.
-          </div>
-        </div>
       </aside>
       <div className="workspace-main">
         <header className="topbar">
-          <div className="flex min-w-0 items-center gap-2.5 text-xs text-muted">
-            <Icon name="home" width="15" height="15" />
+          <div className="flex min-w-0 items-center gap-2.5 text-sm text-muted">
+            <Icon name="home" width="18" height="18" />
             <span
               className="hidden max-w-48 truncate sm:inline-block"
               title={workspaceName}
             >
               {workspaceName}
             </span>
-            <Icon name="chevron" width="12" height="12" />
+            <Icon name="chevron" width="16" height="16" />
             <span className="text-ink">{currentPage}</span>
           </div>
           <ProfileMenu />
@@ -110,9 +78,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
         <footer className="main-footer">
           <span>Um pouco de organização. Um mundo de possibilidades.</span>
-          <span>
-            TaskFlow <span aria-hidden="true">↗</span>
-          </span>
+          <span>TaskFlow</span>
         </footer>
       </div>
     </div>

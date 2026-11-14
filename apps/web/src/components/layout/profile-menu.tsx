@@ -51,6 +51,13 @@ export function ProfileMenu() {
     <details
       ref={details}
       className="profile-menu"
+      onBlur={(event) => {
+        if (
+          event.relatedTarget &&
+          !event.currentTarget.contains(event.relatedTarget)
+        )
+          event.currentTarget.open = false;
+      }}
       onKeyDown={(event) => {
         if (event.key === "Escape" && details.current) {
           details.current.open = false;
@@ -66,8 +73,8 @@ export function ProfileMenu() {
         <span aria-hidden="true">⌄</span>
       </summary>
       <div className="profile-popover">
-        <p className="font-medium text-sm break-words">{user.name}</p>
-        <p className="mt-1 text-xs text-muted break-all">{user.email}</p>
+        <p className="font-semibold text-base break-words">{user.name}</p>
+        <p className="mt-1 text-sm text-muted break-all">{user.email}</p>
         <div className="mt-4 border-t border-line pt-3">
           <Button
             variant="secondary"

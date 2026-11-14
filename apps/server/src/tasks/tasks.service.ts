@@ -74,8 +74,7 @@ export class TasksService {
   ) {
     return this.prisma.$transaction(
       async (tx) => {
-        // Uma linha por quadro serializa suas escritas, inclusive entre instâncias.
-        // SQL parametrizado apenas para o lock; consultas de dados continuam tipadas.
+        // O lock por quadro serializa as escritas que alteram a ordem das tarefas.
         const [board] = await tx.$queryRaw<BoardAccess[]>`
         SELECT b."id", b."workspaceId", m."role"
         FROM "Board" b JOIN "WorkspaceMember" m ON m."workspaceId" = b."workspaceId"

@@ -1,0 +1,212 @@
+/* Autenticação usa a mesma paleta, marca e tipografia da área privada. */
+.auth-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+.auth-page > .brand {
+  margin-bottom: 30px;
+}
+.auth-card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 20px;
+  padding: 32px;
+}
+.auth-card h1 {
+  margin-top: 12px;
+  font-size: 27px;
+  font-weight: 550;
+  letter-spacing: -0.9px;
+  line-height: 1.25;
+}
+.auth-description {
+  margin-top: 10px;
+  color: var(--color-muted);
+  font-size: var(--text-body);
+  line-height: 1.7;
+}
+.form-field label {
+  display: block;
+  font-size: var(--text-label);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.form-field input {
+  display: block;
+  min-height: 46px;
+  width: 100%;
+  border: 1px solid var(--border-control);
+  border-radius: 10px;
+  background: #fffef9;
+  padding: 11px 13px;
+  font-size: var(--text-body);
+  transition: border-color 150ms;
+}
+.form-field input.pr-12 {
+  padding-right: 48px;
+}
+.form-field input::placeholder {
+  color: #77776e;
+  font-size: var(--text-label);
+}
+.form-field input:hover {
+  border-color: #9a978b;
+}
+.form-field input[aria-invalid="true"] {
+  border-color: #ae4648;
+}
+.form-field input:disabled {
+  opacity: 0.65;
+}
+.password-toggle {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  right: 2px;
+  display: flex;
+  width: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #65665b;
+}
+.password-toggle:hover {
+  background: #f2eee4;
+}
+.field-error {
+  margin-top: 7px;
+  color: #9d333b;
+  font-size: var(--text-label);
+  line-height: 1.5;
+}
+.field-hint {
+  margin-top: 7px;
+  color: var(--color-muted);
+  font-size: var(--text-caption);
+  line-height: 1.6;
+}
+.form-alert {
+  border: 1px solid #e8c4c6;
+  border-radius: 10px;
+  background: #faebeb;
+  color: #8b3037;
+  padding: 12px;
+  font-size: var(--text-label);
+  line-height: 1.6;
+}
+.auth-switch {
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid var(--color-line);
+  text-align: center;
+  font-size: var(--text-label);
+  color: var(--color-muted);
+}
+.auth-switch a {
+  margin-left: 3px;
+  color: #735069;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.auth-footer {
+  margin-top: 24px;
+  text-align: center;
+  color: var(--color-muted);
+  font-size: var(--text-caption);
+}
+.session-screen {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 22px;
+}
+.loading-ring {
+  display: inline-block;
+  width: 26px;
+  height: 26px;
+  border: 2px solid #d7d1c8;
+  border-top-color: #805775;
+  border-radius: 50%;
+  animation: loading 800ms linear infinite;
+}
+.loading-ring-small {
+  width: 16px;
+  height: 16px;
+  border-color: #ffffff55;
+  border-top-color: white;
+}
+@keyframes loading {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.profile-menu {
+  position: relative;
+  z-index: 30;
+}
+.profile-menu summary {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  list-style: none;
+  border-radius: 30px;
+  padding: 3px 10px 3px 4px;
+  font-size: var(--text-label);
+}
+.profile-menu summary::-webkit-details-marker {
+  display: none;
+}
+.profile-menu summary:hover {
+  background: #eeeade;
+}
+.profile-avatar {
+  display: inline-flex;
+  width: 31px;
+  height: 31px;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-pink);
+  border: 1px solid #d5b9c9;
+  border-radius: 50%;
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+.profile-name {
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.profile-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  width: min(320px, calc(100vw - 32px));
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  background: var(--color-surface);
+  padding: 20px;
+  box-shadow: 0 10px 30px #24251f12;
+}
+@media (max-width: 480px) {
+  .auth-page {
+    padding: 28px 16px;
+  }
+  .auth-card {
+    padding: 26px 22px;
+  }
+  .auth-card h1 {
+    font-size: 25px;
+  }
+}

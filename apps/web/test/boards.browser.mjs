@@ -1,3 +1,4 @@
+import { selectOption } from "./browser-select.mjs";
 // Verificação opcional com Playwright já instalado, sem dependência de produção.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -12,9 +13,9 @@ const { chromium } = await import(
   process.env.PLAYWRIGHT_MODULE ?? "playwright"
 );
 const databaseUrl = process.env.DATABASE_URL ?? "";
-if (!/^taskflow_etapa0[456]_test/.test(new URL(databaseUrl).pathname.slice(1)))
+if (!/^taskflow_etapa0[4567]_test/.test(new URL(databaseUrl).pathname.slice(1)))
   throw new Error(
-    "Use somente um banco isolado taskflow_etapa04_test*, taskflow_etapa05_test* ou taskflow_etapa06_test*.",
+    "Use somente um banco isolado taskflow_etapa04_test*, taskflow_etapa05_test* ou taskflow_etapa06_test* ou taskflow_etapa07_test*.",
   );
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: databaseUrl }),
@@ -140,7 +141,7 @@ try {
   );
   await visible(page.getByRole("heading", { name: "Nenhum quadro por aqui" }));
   assert.equal(
-    await page.getByLabel("Workspace atual").inputValue(),
+    await page.getByLabel("Workspace atual").getAttribute("data-value"),
     (
       await prisma.workspace.findFirstOrThrow({
         where: { members: { some: { user: { email } } } },
@@ -184,7 +185,7 @@ try {
     "criação, rota estática, colunas da API, recarga e Kanban em mobile/desktop",
   );
 
-  await page.getByRole("link", { name: "← Voltar aos quadros" }).click();
+  await page.getByRole("link", { name: "Voltar aos quadros" }).click();
   await page.waitForURL(baseURL + "/quadros/");
   await manageBoard("Renomear quadro");
   await dialogSubmit("Renomear quadro", "Nome do quadro", "Projeto renomeado");
@@ -196,8 +197,9 @@ try {
     "Workspace renomeado",
   );
   await page
-    .getByRole("option", { name: "Workspace renomeado" })
-    .waitFor({ state: "attached" });
+    .getByRole("combobox", { name: "Workspace atual", exact: true })
+    .filter({ hasText: "Workspace renomeado" })
+    .waitFor({ state: "visible" });
   await page.reload();
   await visible(page.getByRole("heading", { name: "Projeto renomeado" }));
   report("renomeação de quadro e workspace persistida após recarga");
@@ -211,12 +213,12 @@ try {
     "Segundo workspace",
   );
   await visible(page.getByRole("heading", { name: "Nenhum quadro por aqui" }));
-  await page
-    .getByLabel("Workspace atual")
-    .selectOption({ label: "Workspace renomeado" });
+  await selectOption(page.getByLabel("Workspace atual"), {
+    label: "Workspace renomeado",
+  });
   await visible(page.getByRole("heading", { name: "Projeto renomeado" }));
   await page.getByRole("link", { name: "Abrir quadro", exact: true }).click();
-  await page.getByRole("link", { name: "← Voltar aos quadros" }).click();
+  await page.getByRole("link", { name: "Voltar aos quadros" }).click();
   await page.waitForURL(baseURL + "/quadros/");
   await visible(page.getByRole("heading", { name: "Projeto renomeado" }));
   await page.reload();
@@ -249,7 +251,9 @@ try {
   report("falha de conexão com nova tentativa, sem perder sessão");
 
   const user = await prisma.user.findUniqueOrThrow({ where: { email } });
-  const workspaceId = await page.getByLabel("Workspace atual").inputValue();
+  const workspaceId = await page
+    .getByLabel("Workspace atual")
+    .getAttribute("data-value");
   const membership = { userId_workspaceId: { userId: user.id, workspaceId } };
   await prisma.workspaceMember.update({
     where: membership,
@@ -319,8 +323,9 @@ try {
     .click();
   await page.getByRole("dialog").waitFor({ state: "detached" });
   await page
-    .getByRole("option", { name: "Segundo workspace" })
-    .waitFor({ state: "attached" });
+    .getByRole("combobox", { name: "Workspace atual", exact: true })
+    .filter({ hasText: "Segundo workspace" })
+    .waitFor({ state: "visible" });
   assert.equal(await prisma.board.count({ where: { id: removedBoard.id } }), 0);
   assert.equal(
     await prisma.boardColumn.count({ where: { boardId: removedBoard.id } }),
@@ -354,7 +359,9 @@ try {
   await focusDialog.waitFor({ state: "detached" });
   report("abertura por teclado, foco contido e fechamento por Escape");
 
-  const selection = await page.getByLabel("Workspace atual").inputValue();
+  const selection = await page
+    .getByLabel("Workspace atual")
+    .getAttribute("data-value");
   await page.route("**/api/workspaces", (route) =>
     route.fulfill({
       status: 401,

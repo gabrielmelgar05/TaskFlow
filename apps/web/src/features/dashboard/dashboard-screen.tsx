@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionCard } from "@/components/ui/section-card";
-import { Icon } from "@/components/ui/icon";
 import { BoardsSummary } from "@/features/boards/boards-summary";
 import {
   ResourceDialog,
@@ -66,7 +65,6 @@ export function DashboardScreen() {
         {workspace && (
           <ButtonLink href="/quadros/" variant="secondary">
             Abrir Quadros
-            <Icon name="arrow" width="16" height="16" />
           </ButtonLink>
         )}
       </div>

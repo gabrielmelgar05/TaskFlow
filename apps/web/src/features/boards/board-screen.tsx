@@ -28,7 +28,7 @@ export function BoardScreen() {
   return (
     <>
       <ButtonLink variant="secondary" href="/quadros/">
-        ← Voltar aos quadros
+        Voltar aos quadros
       </ButtonLink>
       {!id ? (
         <p className="resource-error" role="alert">

@@ -57,5 +57,13 @@
     "typescript": "^6.0.2",
     "vite": "^8.0.0",
     "vitest": "^4.1.2"
+  },
+  "overrides": {
+    "@nestjs/mau": {
+      "undici": "6.29.1"
+    },
+    "external-editor": {
+      "tmp": "0.2.7"
+    }
   }
 }

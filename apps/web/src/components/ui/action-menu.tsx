@@ -20,6 +20,10 @@ export function ActionMenu({
     <details
       ref={ref}
       className="action-menu"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget))
+          event.currentTarget.open = false;
+      }}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
           ref.current?.removeAttribute("open");

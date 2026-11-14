@@ -19,7 +19,7 @@ export function SectionCard({
     >
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line px-6 py-5 sm:px-7">
         <div>
-          <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+          <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
           {description && (
             <p className="mt-1 text-sm text-muted">{description}</p>
           )}

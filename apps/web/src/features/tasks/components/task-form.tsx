@@ -1,6 +1,7 @@
 "use client";
 import { useId, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { useApiResource, useSessionRequest } from "@/hooks/use-api-resource";
 import { ApiError } from "@/lib/api";
@@ -162,22 +163,18 @@ export function TaskForm({
         <div className="task-form-row">
           <div className="form-field">
             <label htmlFor={id("priority")}>Prioridade</label>
-            <select
+            <Select
               id={id("priority")}
               name="priority"
               value={input.priority}
               disabled={busy}
-              onChange={(event) =>
-                update("priority", event.target.value as Priority)
-              }
+              onValueChange={(value) => update("priority", value as Priority)}
+              options={Object.entries(priorityLabels).map(([value, label]) => ({
+                value,
+                label,
+              }))}
               {...access("priority")}
-            >
-              {Object.entries(priorityLabels).map(([value, label]) => (
-                <option value={value} key={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            />
             {error("priority")}
           </div>
           <div className="form-field">
@@ -200,26 +197,29 @@ export function TaskForm({
           <label htmlFor={id("assigneeId")}>
             Responsável <span className="optional-label">(opcional)</span>
           </label>
-          <select
+          <Select
             id={id("assigneeId")}
             name="assigneeId"
             value={input.assigneeId ?? ""}
             disabled={busy || members.loading || !!members.error}
-            onChange={(event) => update("assigneeId", event.target.value)}
+            onValueChange={(value) => update("assigneeId", value)}
+            options={[
+              { value: "", label: "Sem responsável" },
+              ...(members.data ?? []).map((person) => ({
+                value: person.id,
+                label: person.name,
+              })),
+              ...(currentAssigneeMissing && task?.assignee
+                ? [
+                    {
+                      value: task.assignee.id,
+                      label: `${task.assignee.name} (fora do workspace)`,
+                    },
+                  ]
+                : []),
+            ]}
             {...access("assigneeId")}
-          >
-            <option value="">Sem responsável</option>
-            {members.data?.map((person) => (
-              <option key={person.id} value={person.id}>
-                {person.name}
-              </option>
-            ))}
-            {currentAssigneeMissing && (
-              <option value={task!.assignee!.id}>
-                {task!.assignee!.name} (fora do workspace)
-              </option>
-            )}
-          </select>
+          />
           {error("assigneeId")}
           {members.loading ? (
             <p className="field-hint" role="status">
@@ -248,20 +248,18 @@ export function TaskForm({
         {!task && (
           <div className="form-field">
             <label htmlFor={id("columnId")}>Coluna</label>
-            <select
+            <Select
               id={id("columnId")}
               name="columnId"
               value={selectedColumn}
               disabled={busy}
-              onChange={(event) => setSelectedColumn(event.target.value)}
+              onValueChange={setSelectedColumn}
+              options={board.columns.map((column) => ({
+                value: column.id,
+                label: column.name,
+              }))}
               {...access("columnId")}
-            >
-              {board.columns.map((column) => (
-                <option key={column.id} value={column.id}>
-                  {column.name}
-                </option>
-              ))}
-            </select>
+            />
             {error("columnId")}
           </div>
         )}

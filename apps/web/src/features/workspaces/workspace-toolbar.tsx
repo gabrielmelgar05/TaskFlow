@@ -1,4 +1,5 @@
 "use client";
+import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { canManage, useWorkspaces } from "./workspaces-provider";
@@ -18,20 +19,18 @@ export function WorkspaceToolbar({
     <div className="workspace-toolbar">
       <div className="workspace-selector">
         <label htmlFor="workspace-selection">Workspace atual</label>
-        <select
+        <Select
           id="workspace-selection"
           value={workspace.id}
-          onChange={(event) => {
-            workspaces.select(event.target.value);
+          onValueChange={(value) => {
+            workspaces.select(value);
             onSelect?.();
           }}
-        >
-          {workspaces.workspaces.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
+          options={workspaces.workspaces.map((item) => ({
+            value: item.id,
+            label: item.name,
+          }))}
+        />
       </div>
       <span className="workspace-role">
         {workspace.role === "OWNER"

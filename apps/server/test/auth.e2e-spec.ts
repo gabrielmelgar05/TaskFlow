@@ -61,9 +61,20 @@ describe.skipIf(process.env.RUN_DATABASE_TESTS !== 'true')(
     let userId: string;
     const prefix = `auth-e2e-${randomUUID()}`;
     const email = `${prefix}@example.invalid`;
-    const freshEmail = () => `auth-test-${randomUUID()}@example.invalid`;
+    const emails = new Set([email]);
+    const freshEmail = () => {
+      const value = `auth-test-${randomUUID()}@example.invalid`;
+      emails.add(value);
+      return value;
+    };
 
     beforeAll(async () => {
+      if (
+        !/^taskflow_etapa0[4567]_test/.test(
+          new URL(process.env.DATABASE_URL ?? '').pathname.slice(1),
+        )
+      )
+        throw new Error('Use um banco isolado taskflow_etapa07_test*.');
       const module = await Test.createTestingModule({
         imports: [AppModule],
         controllers: [PrivateTestController],
@@ -88,7 +99,14 @@ describe.skipIf(process.env.RUN_DATABASE_TESTS !== 'true')(
       });
     }, 15000);
     afterAll(async () => {
-      await app?.close();
+      try {
+        if (prisma)
+          await prisma.user.deleteMany({
+            where: { email: { in: [...emails] } },
+          });
+      } finally {
+        await app?.close();
+      }
     });
 
     it('persiste senha Argon2id e somente o hash do token; devolve apenas dados públicos', async () => {

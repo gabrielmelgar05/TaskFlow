@@ -40,7 +40,7 @@ export function Dialog({
         if (event.key !== "Tab") return;
         const controls = Array.from(
           event.currentTarget.querySelectorAll<HTMLElement>(
-            "button:not([disabled]), input:not([disabled]), a[href], select:not([disabled]), textarea:not([disabled])",
+            'button:not([disabled]), input:not([disabled]):not([type="hidden"]), a[href], select:not([disabled]):not([aria-hidden="true"]), textarea:not([disabled])',
           ),
         );
         const first = controls[0];
